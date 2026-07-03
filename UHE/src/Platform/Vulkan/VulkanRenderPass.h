@@ -6,6 +6,10 @@ class VulkanRenderPass
 {
 public:
     VulkanRenderPass() = default;
+    ~VulkanRenderPass() = default;
+    VulkanRenderPass(VulkanRenderPass& obj) = delete;
+
+    void Init();
 
 private:
 };

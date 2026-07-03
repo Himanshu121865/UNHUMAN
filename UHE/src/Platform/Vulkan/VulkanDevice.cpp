@@ -450,11 +450,4 @@ void VulkanDevice::ReadPixel(TextureHandle handle, int x, int y, void* outData)
     vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAlloc);
 }
 
-void VulkanDevice::SetVulkanObjectName(uint64_t objectHandle, vk::ObjectType objectType, const char* name)
-{
-    vk::DebugUtilsObjectNameInfoEXT nameInfo{
-        .objectType = objectType, .objectHandle = objectHandle, .pObjectName = name};
-    m_LogicalDevice.getLogicalDevice().setDebugUtilsObjectNameEXT(nameInfo);
-}
-
 } // namespace UHE::RHI::VULKAN
