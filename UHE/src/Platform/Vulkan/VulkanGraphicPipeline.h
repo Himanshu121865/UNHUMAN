@@ -18,7 +18,8 @@ class VulkanGraphicPipeline
 public:
     VulkanGraphicPipeline();
     ~VulkanGraphicPipeline();
-
+    VulkanGraphicPipeline(const VulkanGraphicPipeline&) = delete;
+    VulkanGraphicPipeline operator=(const VulkanGraphicPipeline&) = delete;
     void Init();
     void Bind();
 

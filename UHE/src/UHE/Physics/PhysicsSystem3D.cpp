@@ -53,16 +53,16 @@ public:
         mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
     }
 
-    virtual uint32_t GetNumBroadPhaseLayers() const override { return BroadPhaseLayers::NUM_LAYERS; }
+    uint32_t GetNumBroadPhaseLayers() const override { return BroadPhaseLayers::NUM_LAYERS; }
 
-    virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer) const override
+    JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer) const override
     {
         UHE_CORE_ASSERT(inLayer < Layers::NUM_LAYERS, "Invalid layer");
         return mObjectToBroadPhase[inLayer];
     }
 
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-    virtual const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const override
+    const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const override
     {
         switch (static_cast<JPH::BroadPhaseLayer::Type>(inLayer))
         {
@@ -84,7 +84,7 @@ private:
 class ObjectVsBroadPhaseLayerFilterImpl : public JPH::ObjectVsBroadPhaseLayerFilter
 {
 public:
-    virtual bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) const override
+    bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) const override
     {
         switch (inLayer1)
         {
@@ -102,7 +102,7 @@ public:
 class ObjectLayerPairFilterImpl : public JPH::ObjectLayerPairFilter
 {
 public:
-    virtual bool ShouldCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObject2) const override
+    bool ShouldCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObject2) const override
     {
         switch (inObject1)
         {

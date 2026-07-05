@@ -1,7 +1,7 @@
 #include "uhepch.h"
 #include "VulkanDevice.h"
 #include <GLFW/glfw3.h>
-#include <atomic>
+// #include <atomic>
 #include <common/TracyQueue.hpp>
 #include <cstdint>
 #ifdef _WIN32
@@ -124,7 +124,7 @@ void VulkanDevice::RecreateSwapchain()
 
 BufferHandle VulkanDevice::CreateBuffer(const BufferDesc& desc)
 {
-    VulkanBuffer* buffer = new VulkanBuffer();
+    auto* buffer = new VulkanBuffer();
 
     vk::BufferUsageFlags usage{};
     if (desc.usage == BufferUsage::Vertex)

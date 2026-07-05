@@ -7,8 +7,8 @@ class VulkanRenderPass
 public:
     VulkanRenderPass() = default;
     ~VulkanRenderPass() = default;
-    VulkanRenderPass(VulkanRenderPass& obj) = delete;
-
+    VulkanRenderPass(VulkanRenderPass&) = delete;
+    VulkanRenderPass operator=(VulkanRenderPass&) = delete;
     void Init();
 
 private:
