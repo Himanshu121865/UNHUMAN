@@ -4,10 +4,5 @@
 
 namespace UHE::RHI::VULKAN
 {
-void VulkanRenderPass::Init()
-{
-    VkRenderPass{
-
-    };
-}
+void VulkanRenderPass::Init() {}
 }; // namespace UHE::RHI::VULKAN

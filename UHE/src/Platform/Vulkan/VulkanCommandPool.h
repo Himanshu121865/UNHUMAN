@@ -12,8 +12,8 @@ public:
     VulkanCommandPool& operator=(const VulkanCommandPool&) = delete;
 
     void Init(vk::raii::Device& device, u32 queueFamilyIndex, vk::CommandPoolCreateFlags flags = {});
-    inline void CleanUp();
-    inline void Reset(vk::CommandPoolResetFlags flags = {});
+    void CleanUp();
+    void Reset(vk::CommandPoolResetFlags flags = {});
     [[nodiscard]] inline const vk::raii::CommandPool& GetHandle() const { return m_CommandPool; }
     [[nodiscard]] inline vk::raii::CommandPool& GetHandle() { return m_CommandPool; }
 

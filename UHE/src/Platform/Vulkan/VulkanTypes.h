@@ -4,9 +4,8 @@
 
 namespace UHE::RHI::VULKAN
 {
-
-inline vk::Format MapTextureFormat(TextureFormat format);
-inline vk::PrimitiveTopology MapTopology(PrimitiveTopology topology);
-inline vk::Format ShaderDataTypeToVulkanFormat(ShaderDataType type);
+vk::Format MapTextureFormat(TextureFormat format);
+vk::PrimitiveTopology MapTopology(PrimitiveTopology topology);
+vk::Format ShaderDataTypeToVulkanFormat(ShaderDataType type);
 
 } // namespace UHE::RHI::VULKAN
