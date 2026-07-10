@@ -11,9 +11,11 @@
 #endif
 #include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanBuffer.h"
+#include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "Platform/Vulkan/VulkanGraphicPipeline.h"
 #include "Platform/Vulkan/VulkanShader.h"
 #include "Platform/Vulkan/VulkanTexture.h"
+#include "Platform/Vulkan/VulkanUtils.h"
 #include "UHE/Core/Log.h"
 #include "UHE/RHI/RHITypes.h"
 
@@ -41,7 +43,8 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     m_LogicalDevice.CreateSurface(m_Instance, m_WindowHandle);
     m_PhysicalDevice.initPhysicalDevice(m_Instance);
 
-    m_LogicalDevice.initialize(m_PhysicalDevice, *m_LogicalDevice.getSurface(), m_Instance);
+    VulkanExtensionCheck extCheck;
+    m_LogicalDevice.initialize(m_PhysicalDevice, *m_LogicalDevice.getSurface(), m_Instance, extCheck);
     m_Allocator = m_LogicalDevice.getAllocator();
 
     m_SwapChain.createSwapChain(m_LogicalDevice.getLogicalDevice(), m_PhysicalDevice.getPhysicalDevice(),
@@ -73,11 +76,28 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
         frame.GetCommandBuffer().SetContext(&m_LogicalDevice.getLogicalDevice(), &m_DescriptorManager);
     }
 
+    m_Context.instance = &m_Instance;
+    m_Context.physicalDevice = &m_PhysicalDevice;
+    m_Context.logicalDevice = &m_LogicalDevice;
+    m_Context.swapChain = &m_SwapChain;
+    m_Context.device = this;
+    m_Context.descriptorManager = &m_DescriptorManager;
+    m_Context.allocator = m_Allocator;
+    m_Context.logicalDeviceHandle = &m_LogicalDevice.getLogicalDevice();
+    m_Context.physicalDeviceHandle = &m_PhysicalDevice.getPhysicalDevice();
+    m_Context.instanceHandle = &m_Instance.getInstance();
+    m_Context.graphicsQueue = &m_LogicalDevice.getGraphicsQueue();
+    m_Context.surface = &m_LogicalDevice.getSurface();
+    m_Context.graphicsQueueFamilyIndex = m_LogicalDevice.getGraphicsQueueFamilyIndex();
+    g_VulkanContext = &m_Context;
+
     UHE_CORE_INFO("Vulkan device initialized successfully");
 }
 
 void VulkanDevice::CleanupVulkan()
 {
+    g_VulkanContext = nullptr;
+
     WaitIdle();
 
     m_DescriptorManager.cleanup();
@@ -260,6 +280,8 @@ void VulkanDevice::Begin()
     }
 
     m_ImageIndex = imageIndex;
+    m_Context.currentFrameIndex = m_CurrentFrame;
+    m_Context.imageIndex = m_ImageIndex;
 
     m_Frames[m_CurrentFrame].GetDeletionQueue().Flush();
     m_Frames[m_CurrentFrame].GetCommandBuffer().Reset();
@@ -360,94 +382,52 @@ void VulkanDevice::ReadPixel(TextureHandle handle, int x, int y, void* outData)
     auto* texture = reinterpret_cast<VulkanTexture*>(handle);
     vk::Image image = texture->GetImage();
 
-    // 1. Create a CPU-visible buffer
-    VkBuffer stagingBuffer;
-    VmaAllocation stagingAlloc;
-
-    VkBufferCreateInfo bufferInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                  .pNext = nullptr,
-                                  .flags = 0,
-                                  .size = 4, // Read 4 bytes
-                                  .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                  .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                                  .queueFamilyIndexCount = 0,
-                                  .pQueueFamilyIndices = nullptr};
-
-    VmaAllocationCreateInfo allocInfo{.flags = 0,
-                                      .usage = VMA_MEMORY_USAGE_GPU_TO_CPU,
-                                      .requiredFlags = 0,
-                                      .preferredFlags = 0,
-                                      .memoryTypeBits = 0,
-                                      .pool = VK_NULL_HANDLE,
-                                      .pUserData = nullptr,
-                                      .priority = 0.0f};
-
-    VkResult res = vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &stagingBuffer, &stagingAlloc, nullptr);
-    if (res != VK_SUCCESS)
+    CreatedBuffer readbackBuf = ::UHE::RHI::VULKAN::CreateBuffer(4, vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_TO_CPU);
+    if (!readbackBuf.buffer)
     {
-        UHE_CORE_ERROR("Failed to create staging buffer for ReadPixel!");
+        UHE_CORE_ERROR("Failed to create readback buffer for ReadPixel!");
         return;
     }
 
-    // 2. Allocate and begin command buffer
-    vk::CommandBufferAllocateInfo allocInfoCmd{
-        .commandPool = {}, // Note: immediate submit overrides this inside, but we provide it here if needed or let
-                           // default init. Wait, ImmediateSubmit creates its own pool? Yes, ImmediateSubmit doesn't
-                           // take allocInfoCmd. It's unused!
-        .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1};
     ImmediateSubmit(
         [&](vk::raii::CommandBuffer& cmd)
         {
-            // 3. Transition image layout to TRANSFER_SRC_OPTIMAL
-            vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlagBits::eMemoryRead,
-                                           .dstAccessMask = vk::AccessFlagBits::eTransferRead,
-                                           .oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                           .newLayout = vk::ImageLayout::eTransferSrcOptimal,
-                                           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                           .image = image,
-                                           .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
-                                                                .baseMipLevel = 0,
-                                                                .levelCount = 1,
-                                                                .baseArrayLayer = 0,
-                                                                .layerCount = 1}};
+            TransitionLayout(cmd, image,
+                vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eTransferSrcOptimal,
+                vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eTransferRead,
+                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
 
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
-                                vk::DependencyFlags{}, nullptr, nullptr, barrier);
+            vk::BufferImageCopy region{
+                .bufferOffset = 0,
+                .bufferRowLength = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource = {
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .mipLevel = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                },
+                .imageOffset = vk::Offset3D{x, y, 0},
+                .imageExtent = vk::Extent3D{1, 1, 1}
+            };
 
-            // 4. Copy image to buffer
-            vk::BufferImageCopy region{.bufferOffset = 0,
-                                       .bufferRowLength = 0,
-                                       .bufferImageHeight = 0,
-                                       .imageSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor,
-                                                            .mipLevel = 0,
-                                                            .baseArrayLayer = 0,
-                                                            .layerCount = 1},
-                                       .imageOffset = vk::Offset3D{x, y, 0},
-                                       .imageExtent = vk::Extent3D{1, 1, 1}};
+            cmd.copyImageToBuffer(image, vk::ImageLayout::eTransferSrcOptimal, readbackBuf.buffer, region);
 
-            cmd.copyImageToBuffer(image, vk::ImageLayout::eTransferSrcOptimal, stagingBuffer, region);
-
-            // 5. Transition image layout back
-            barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-            barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-            barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
-            barrier.dstAccessMask = vk::AccessFlagBits::eMemoryRead;
-
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
-                                vk::DependencyFlags{}, nullptr, nullptr, barrier);
+            TransitionLayout(cmd, image,
+                vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+                vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eMemoryRead,
+                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
         });
 
-    // 7. Map memory and read
     void* mappedData = nullptr;
-    if (vmaMapMemory(m_Allocator, stagingAlloc, &mappedData) == VK_SUCCESS && mappedData)
+    VkResult res = vmaMapMemory(m_Allocator, readbackBuf.allocation, &mappedData);
+    if (res == VK_SUCCESS && mappedData)
     {
         memcpy(outData, mappedData, 4);
-        vmaUnmapMemory(m_Allocator, stagingAlloc);
+        vmaUnmapMemory(m_Allocator, readbackBuf.allocation);
     }
 
-    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAlloc);
+    vmaDestroyBuffer(m_Allocator, static_cast<VkBuffer>(readbackBuf.buffer), readbackBuf.allocation);
 }
 
 } // namespace UHE::RHI::VULKAN

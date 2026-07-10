@@ -1,8 +1,15 @@
 #include "VulkanRenderPass.h"
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_raii.hpp>
+#include "Platform/Vulkan/VulkanContext.h"
+#include "UHE/RHI/RHITypes.h"
+#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
-void VulkanRenderPass::Init() {}
+void VulkanRenderPass::Init(VulkanContext& ctx, const UHE::RHI::RenderPassDesc& renderdesc)
+
+{
+    vk::RenderPassCreateInfo{
+
+    };
+}
 }; // namespace UHE::RHI::VULKAN

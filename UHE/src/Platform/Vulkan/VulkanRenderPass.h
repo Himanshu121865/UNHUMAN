@@ -1,7 +1,10 @@
 #pragma once
-
+#include <vulkan/vulkan_raii.hpp>
+#include "UHE/RHI/RHITypes.h"
 namespace UHE::RHI::VULKAN
 {
+
+class VulkanContext;
 class VulkanRenderPass
 {
 public:
@@ -9,7 +12,10 @@ public:
     ~VulkanRenderPass() = default;
     VulkanRenderPass(VulkanRenderPass&) = delete;
     VulkanRenderPass operator=(VulkanRenderPass&) = delete;
-    void Init();
+    void Init(VulkanContext& ctx, const UHE::RHI::RenderPassDesc& desc);
+
+    // TODO
+    // implement the RenderPass Builder Feature so it can run better in old hardware
 
 private:
 };

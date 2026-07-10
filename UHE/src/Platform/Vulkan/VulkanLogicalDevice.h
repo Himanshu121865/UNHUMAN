@@ -13,6 +13,7 @@ class VulkanLogicalDevice
 {
 public:
     VulkanLogicalDevice() = default;
+    ~VulkanLogicalDevice() = default;
     VulkanLogicalDevice(const VulkanLogicalDevice&) = delete;
     VulkanLogicalDevice& operator=(const VulkanLogicalDevice&) = delete;
 
