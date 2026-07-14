@@ -12,7 +12,7 @@ public:
     ~VulkanRenderPass() = default;
     VulkanRenderPass(VulkanRenderPass&) = delete;
     VulkanRenderPass operator=(VulkanRenderPass&) = delete;
-    void Init(VulkanContext& ctx, const UHE::RHI::RenderPassDesc& desc);
+    void Init(VulkanContext& ctx, UHE::RHI::RenderPassDesc& desc);
 
     // TODO
     // implement the RenderPass Builder Feature so it can run better in old hardware

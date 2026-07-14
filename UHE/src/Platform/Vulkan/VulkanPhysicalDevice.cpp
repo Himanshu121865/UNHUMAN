@@ -2,7 +2,6 @@
 #include "VulkanPhysicalDevice.h"
 #include <stdexcept>
 #include <vulkan/vulkan_raii.hpp>
-#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
@@ -118,7 +117,7 @@ i32 VulkanPhysicalDevice::RateDevice(const vk::raii::PhysicalDevice& device) con
     {
         if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)
         {
-            score += static_cast<i32>(heap.size / (1024 * 1024 * 1024)); // GB
+            score += static_cast<i32>(static_cast<int>(heap.size) / (1024 * 1024 * 1024)); // GB
         }
     }
     return score;

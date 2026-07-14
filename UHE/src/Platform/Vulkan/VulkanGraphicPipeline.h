@@ -12,6 +12,8 @@ namespace UHE::RHI::VULKAN
 {
 class VulkanLogicalDevice;
 class VulkanDescriptorManager;
+class VulkanRenderPass;
+class VulkanFramebuffer;
 
 class VulkanGraphicPipeline
 {

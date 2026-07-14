@@ -1,10 +1,10 @@
 #include "uhepch.h"
+#include <stb_image.h>
 #include "VulkanTexture2D.h"
 #include "VulkanTexture.h"
 #include "UHE/Renderer/Renderer.h"
 #include "Platform/Vulkan/VulkanDevice.h"
 
-#include <stb_image.h>
 
 namespace UHE {
 
@@ -23,7 +23,7 @@ namespace UHE {
             auto& rhiDevice = Renderer::GetDevice();
             auto* vulkanDevice = static_cast<RHI::VULKAN::VulkanDevice*>(&rhiDevice);
 
-            size_t dataSize = m_Width * m_Height * 4;
+            size_t dataSize = static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height) * 4;
             m_VulkanTexture->CreateTexture(*vulkanDevice, data, m_Width, m_Height, dataSize);
 
             stbi_image_free(data);
@@ -49,7 +49,7 @@ namespace UHE {
             auto& rhiDevice = Renderer::GetDevice();
             auto* vulkanDevice = static_cast<RHI::VULKAN::VulkanDevice*>(&rhiDevice);
 
-            size_t dataSize = m_Width * m_Height * 4;
+            size_t dataSize = static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height) * 4;
             m_VulkanTexture->CreateTexture(*vulkanDevice, data, m_Width, m_Height, dataSize);
 
             stbi_image_free(data);
@@ -67,11 +67,11 @@ namespace UHE {
         auto& rhiDevice = Renderer::GetDevice();
         auto* vulkanDevice = static_cast<RHI::VULKAN::VulkanDevice*>(&rhiDevice);
 
-        size_t dataSize = m_Width * m_Height * 4;
+        size_t dataSize = static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height) * 4;
         
         // For blank textures, allocate white pixel data
-        u32* whiteData = new u32[m_Width * m_Height];
-        for (u32 i = 0; i < m_Width * m_Height; i++) whiteData[i] = 0xffffffff;
+        u32* whiteData = new u32[static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height)];
+        for (u32 i = 0; i < static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height); i++) whiteData[i] = 0xffffffff;
 
         m_VulkanTexture->CreateTexture(*vulkanDevice, whiteData, m_Width, m_Height, dataSize);
         delete[] whiteData;

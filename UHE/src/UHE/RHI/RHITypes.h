@@ -52,6 +52,7 @@ enum class TextureUsage : u32 {
     Storage      = 1 << 3,
     TransferSrc  = 1 << 4,
     TransferDst  = 1 << 5,
+    None         = 0
 };
 inline TextureUsage operator|(TextureUsage a, TextureUsage b) {
     return static_cast<TextureUsage>(static_cast<u32>(a) | static_cast<u32>(b));
@@ -210,10 +211,15 @@ struct GraphicsPipelineDesc {
 };
 
 struct ColorAttachment {
-    TextureHandle texture   = nullptr;
-    LoadOp        loadOp    = LoadOp::Clear;
-    StoreOp       storeOp   = StoreOp::Store;
-    glm::vec4     clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+    TextureHandle        texture        = nullptr;
+    LoadOp               loadOp         = LoadOp::Clear;
+    StoreOp              storeOp        = StoreOp::Store;
+    glm::vec4            clearColor     = {0.0f, 0.0f, 0.0f, 1.0f};
+    TextureFormat        format         = TextureFormat::BGRA8_SRGB;
+    TextureUsage         usage          = TextureUsage::None; // Bitmask of TextureUsage flags
+    u32                  sampleCount    = 1;
+    LoadOp               stencilLoadOp  = LoadOp::DontCare;
+    StoreOp              stencilStoreOp = StoreOp::DontCare;
 };
 
 struct DepthAttachment {
@@ -224,13 +230,23 @@ struct DepthAttachment {
     u8            clearStencil = 0;
 };
 
+struct SubpassDesc {
+    u32 colorAttachmentCount = 0;
+    u32 colorAttachments[8] = {};
+    u32 depthAttachment = 0;
+};
+
 struct RenderPassDesc {
     ColorAttachment  colorAttachments[8] = {};
-    u32              colorAttachmentCount = 0;
+    u32              colorAttachmentCount = 0; 
+    u32              subpassCount        = 1;
+    SubpassDesc      subpasses[8]        = {};
+    u32              dependencyCount     = 0;
     DepthAttachment  depthAttachment     = {};
     bool             hasDepth            = false;
     u32              renderWidth         = 0;
     u32              renderHeight        = 0;
+    
 };
 
 // ─── Swapchain Info ─────────────────────────────────────────────
