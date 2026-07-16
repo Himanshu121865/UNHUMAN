@@ -11,7 +11,7 @@ struct VulkanExtensionIsEnableCheck
     bool HasVkSwapchainColorspace = false; // VK_EXT_swapchain_colorspace
 
     // ======== DEVICE EXTENSIONS =================================================
-  
+
     bool HasVkdynamicRendering = false;                    // VK_KHR_dynamic_rendering / Core 1.3
     bool HasVkSync2 = false;                               // VK_KHR_synchronization2 / Core 1.3
     bool HasVkTimelineSemaphore = false;                   // VK_KHR_timeline_semaphore / Core 1.2
@@ -74,11 +74,14 @@ public:
     VulkanExtensionCheck() = default;
     ~VulkanExtensionCheck() = default;
 
-    [[nodiscard]] bool IsInstanceVulkanExtensionEnable() noexcept { return false; }
-    [[nodiscard]] bool IsPhysicalVulkanExtensionEnable() noexcept { return false; }
+    [[nodiscard]] const VulkanExtensionIsEnableCheck GetVulkanExtensionFlags() const noexcept
+    {
+        return m_extensionCheck;
+    }
 
-    std::vector<const char*> GetEnabledDeviceExtensions() const;
-    vk::PhysicalDeviceFeatures2* BuildDeviceFeatureChain();
+    [[nodiscard]] std::vector<const char*> GetEnabledDeviceExtensions() const;
+    [[nodiscard]] vk::PhysicalDeviceFeatures2* BuildDeviceFeatureChain();
+    void TickTheAvailableExtension(vk::PhysicalDevice PhysicalDevice);
 
 private:
     VulkanExtensionIsEnableCheck m_extensionCheck;
@@ -87,8 +90,21 @@ private:
     vk::PhysicalDeviceVulkan12Features m_v12Features;
     vk::PhysicalDeviceVulkan13Features m_v13Features;
     vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT m_dynamicStateFeatures;
+    vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT m_dynamicState2Features;
     vk::PhysicalDeviceDescriptorBufferFeaturesEXT m_descriptorBufferFeatures;
     vk::PhysicalDeviceShaderObjectFeaturesEXT m_shaderObjectFeatures;
+    vk::PhysicalDeviceGraphicsPipelineLibraryFeaturesEXT m_graphicsPipelineLibraryFeatures;
+    vk::PhysicalDeviceMeshShaderFeaturesEXT m_meshShaderFeatures;
+    vk::PhysicalDeviceAccelerationStructureFeaturesKHR m_accelerationStructureFeatures;
+    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR m_rayTracingPipelineFeatures;
+    vk::PhysicalDeviceRayQueryFeaturesKHR m_rayQueryFeatures;
+    vk::PhysicalDeviceFragmentShadingRateFeaturesKHR m_fragmentShadingRateFeatures;
+    vk::PhysicalDeviceCooperativeMatrixFeaturesKHR m_cooperativeMatrixFeatures;
+    vk::PhysicalDeviceRobustness2FeaturesEXT m_robustness2Features;
+    vk::PhysicalDeviceMemoryPriorityFeaturesEXT m_memoryPriorityFeatures;
+    vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT m_pageableDeviceLocalMemoryFeatures;
+    vk::PhysicalDeviceHostImageCopyFeaturesEXT m_hostImageCopyFeatures;
+    vk::PhysicalDeviceDynamicRenderingLocalReadFeaturesKHR m_dynamicRenderingLocalReadFeatures;
 };
 
 } // namespace UHE::RHI::VULKAN

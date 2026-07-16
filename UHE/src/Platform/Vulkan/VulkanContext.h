@@ -12,12 +12,14 @@ class VulkanLogicalDevice;
 class VulkanSwapChain;
 class VulkanDevice;
 class VulkanDescriptorManager;
+class VulkanExtensionCheck;
 
 struct VulkanContext
 {
     VulkanInstance* instance = nullptr;
     VulkanPhysicalDevice* physicalDevice = nullptr;
     VulkanLogicalDevice* logicalDevice = nullptr;
+    VulkanExtensionCheck* CheckExtensions = nullptr;
     VulkanSwapChain* swapChain = nullptr;
     VulkanDevice* device = nullptr;
     VulkanDescriptorManager* descriptorManager = nullptr;

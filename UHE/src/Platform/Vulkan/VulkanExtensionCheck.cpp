@@ -2,6 +2,7 @@
 #include "VulkanExtensionCheck.h"
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
@@ -121,40 +122,64 @@ std::vector<const char*> VulkanExtensionCheck::GetEnabledDeviceExtensions() cons
 };
 vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
 {
+    // ── Core Physical Device Features ──
     m_features2.features.samplerAnisotropy = VK_TRUE;
     m_features2.features.independentBlend = VK_TRUE;
 
-    void** pNextChainTail = &m_v12Features.pNext;
+    // ── Always chain Vulkan 1.1 / 1.2 / 1.3 (they are core for Vulkan 1.3) ──
+    m_features2.pNext = &m_v11Features;
+    m_v11Features.pNext = &m_v12Features;
+    m_v12Features.pNext = &m_v13Features;
 
+    // ── Vulkan 1.1 Features ──
     if (m_extensionCheck.HasVkShaderDrawParameters)
-    {
         m_v11Features.shaderDrawParameters = VK_TRUE;
-        *pNextChainTail = &m_v11Features;
-        pNextChainTail = &m_v11Features.pNext;
-    }
+    if (m_extensionCheck.HasVK16bit_storage)
+        m_v11Features.storageBuffer16BitAccess = VK_TRUE;
+    if (m_extensionCheck.HasVkMultiview)
+        m_v11Features.multiview = VK_TRUE;
+    if (m_extensionCheck.HasVKYcbcr2Conversion)
+        m_v11Features.samplerYcbcrConversion = VK_TRUE;
 
-    if (m_extensionCheck.HasVkBindlessDescriptor || m_extensionCheck.HasVkbuffer_device_address)
+    // ── Vulkan 1.2 Features ──
+    if (m_extensionCheck.HasVkBindlessDescriptor)
     {
-        if (m_extensionCheck.HasVkBindlessDescriptor)
-        {
-            m_v12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-            m_v12Features.descriptorBindingPartiallyBound = VK_TRUE;
-            m_v12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-            m_v12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-        }
-        if (m_extensionCheck.HasVkbuffer_device_address)
-            m_v12Features.bufferDeviceAddress = VK_TRUE;
-        *pNextChainTail = &m_v12Features;
-        pNextChainTail = &m_v12Features.pNext;
+        m_v12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+        m_v12Features.descriptorBindingPartiallyBound = VK_TRUE;
+        m_v12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+        m_v12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+        m_v12Features.runtimeDescriptorArray = VK_TRUE;
     }
+    if (m_extensionCheck.HasVkbuffer_device_address)
+        m_v12Features.bufferDeviceAddress = VK_TRUE;
+    if (m_extensionCheck.HasVkTimelineSemaphore)
+        m_v12Features.timelineSemaphore = VK_TRUE;
+    if (m_extensionCheck.HasVkshader_float16_int8)
+    {
+        m_v12Features.shaderFloat16 = VK_TRUE;
+        m_v12Features.shaderInt8 = VK_TRUE;
+    }
+    if (m_extensionCheck.HasVkshader_subgroup_extended_types)
+        m_v12Features.shaderSubgroupExtendedTypes = VK_TRUE;
+    if (m_extensionCheck.HasVkDrawIndirectCount)
+        m_v12Features.drawIndirectCount = VK_TRUE;
+    if (m_extensionCheck.HasVkHostQueryReset)
+        m_v12Features.hostQueryReset = VK_TRUE;
 
-    if (m_extensionCheck.HasVkdynamicRendering || m_extensionCheck.HasVkSync2)
-    {
-        m_v13Features.dynamicRendering = m_extensionCheck.HasVkdynamicRendering ? VK_TRUE : VK_FALSE;
-        m_v13Features.synchronization2 = m_extensionCheck.HasVkSync2 ? VK_TRUE : VK_FALSE;
-        *pNextChainTail = &m_v13Features;
-        pNextChainTail = &m_v13Features.pNext;
-    }
+    // ── Vulkan 1.3 Features ──
+    if (m_extensionCheck.HasVkdynamicRendering)
+        m_v13Features.dynamicRendering = VK_TRUE;
+    if (m_extensionCheck.HasVkSync2)
+        m_v13Features.synchronization2 = VK_TRUE;
+    if (m_extensionCheck.HasVkInlineUniformBlock)
+        m_v13Features.inlineUniformBlock = VK_TRUE;
+    if (m_extensionCheck.HasVkImageRobustness)
+        m_v13Features.robustImageAccess = VK_TRUE;
+    if (m_extensionCheck.HasVkTextureCompressionASTC_HDR)
+        m_v13Features.textureCompressionASTC_HDR = VK_TRUE;
+
+    // ── Extension Feature Structs (appended to the pNext chain after v13) ──
+    void** pNextChainTail = &m_v13Features.pNext;
 
     if (m_extensionCheck.HasVkExtendedDynamicState)
     {
@@ -162,7 +187,12 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
         *pNextChainTail = &m_dynamicStateFeatures;
         pNextChainTail = &m_dynamicStateFeatures.pNext;
     }
-
+    if (m_extensionCheck.HasVkExtendedDynamicState2)
+    {
+        m_dynamicState2Features.extendedDynamicState2 = VK_TRUE;
+        *pNextChainTail = &m_dynamicState2Features;
+        pNextChainTail = &m_dynamicState2Features.pNext;
+    }
     if (m_extensionCheck.HasVkDescriptorBuffer)
     {
         m_descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
@@ -175,8 +205,193 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
         *pNextChainTail = &m_shaderObjectFeatures;
         pNextChainTail = &m_shaderObjectFeatures.pNext;
     }
+    if (m_extensionCheck.HasVkGraphicsPipelineLibrary)
+    {
+        m_graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = VK_TRUE;
+        *pNextChainTail = &m_graphicsPipelineLibraryFeatures;
+        pNextChainTail = &m_graphicsPipelineLibraryFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkmesh_shader)
+    {
+        m_meshShaderFeatures.meshShader = VK_TRUE;
+        m_meshShaderFeatures.taskShader = VK_TRUE;
+        *pNextChainTail = &m_meshShaderFeatures;
+        pNextChainTail = &m_meshShaderFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkAccelerationStructure)
+    {
+        m_accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+        *pNextChainTail = &m_accelerationStructureFeatures;
+        pNextChainTail = &m_accelerationStructureFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkRayTracingPipeline)
+    {
+        m_rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+        *pNextChainTail = &m_rayTracingPipelineFeatures;
+        pNextChainTail = &m_rayTracingPipelineFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkRayQuery)
+    {
+        m_rayQueryFeatures.rayQuery = VK_TRUE;
+        *pNextChainTail = &m_rayQueryFeatures;
+        pNextChainTail = &m_rayQueryFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkfragment_shading_rate)
+    {
+        m_fragmentShadingRateFeatures.pipelineFragmentShadingRate = VK_TRUE;
+        m_fragmentShadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
+        m_fragmentShadingRateFeatures.attachmentFragmentShadingRate = VK_TRUE;
+        *pNextChainTail = &m_fragmentShadingRateFeatures;
+        pNextChainTail = &m_fragmentShadingRateFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkCooperativeMatrix)
+    {
+        m_cooperativeMatrixFeatures.cooperativeMatrix = VK_TRUE;
+        *pNextChainTail = &m_cooperativeMatrixFeatures;
+        pNextChainTail = &m_cooperativeMatrixFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkRobustness2)
+    {
+        m_robustness2Features.robustBufferAccess2 = VK_TRUE;
+        m_robustness2Features.robustImageAccess2 = VK_TRUE;
+        m_robustness2Features.nullDescriptor = VK_TRUE;
+        *pNextChainTail = &m_robustness2Features;
+        pNextChainTail = &m_robustness2Features.pNext;
+    }
+    if (m_extensionCheck.HasVkMemoryPriority)
+    {
+        m_memoryPriorityFeatures.memoryPriority = VK_TRUE;
+        *pNextChainTail = &m_memoryPriorityFeatures;
+        pNextChainTail = &m_memoryPriorityFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkPageableDeviceLocalMemory)
+    {
+        m_pageableDeviceLocalMemoryFeatures.pageableDeviceLocalMemory = VK_TRUE;
+        *pNextChainTail = &m_pageableDeviceLocalMemoryFeatures;
+        pNextChainTail = &m_pageableDeviceLocalMemoryFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkHostImageCopy)
+    {
+        m_hostImageCopyFeatures.hostImageCopy = VK_TRUE;
+        *pNextChainTail = &m_hostImageCopyFeatures;
+        pNextChainTail = &m_hostImageCopyFeatures.pNext;
+    }
+    if (m_extensionCheck.HasVkDynamicRenderingLocalRead)
+    {
+        m_dynamicRenderingLocalReadFeatures.dynamicRenderingLocalRead = VK_TRUE;
+        *pNextChainTail = &m_dynamicRenderingLocalReadFeatures;
+        pNextChainTail = &m_dynamicRenderingLocalReadFeatures.pNext;
+    }
+
     *pNextChainTail = nullptr;
     return &m_features2;
 };
+
+void VulkanExtensionCheck::TickTheAvailableExtension(vk::PhysicalDevice PhysicalDevice)
+{
+    auto availableExtension = PhysicalDevice.enumerateDeviceExtensionProperties();
+
+    for (const auto& ext : availableExtension)
+    {
+        std::string_view name = ext.extensionName;
+        if (name == "VK_KHR_dynamic_rendering")
+            m_extensionCheck.HasVkdynamicRendering = true;
+        else if (name == "VK_KHR_synchronization2")
+            m_extensionCheck.HasVkSync2 = true;
+        else if (name == "VK_KHR_timeline_semaphore")
+            m_extensionCheck.HasVkTimelineSemaphore = true;
+        else if (name == "VK_KHR_push_descriptor")
+            m_extensionCheck.HasVkPushDescriptor = true;
+        else if (name == "VK_KHR_16bit_storage")
+            m_extensionCheck.HasVK16bit_storage = true;
+        else if (name == "VK_KHR_shader_float16_int8")
+            m_extensionCheck.HasVkshader_float16_int8 = true;
+        else if (name == "VK_KHR_buffer_device_address")
+            m_extensionCheck.HasVkbuffer_device_address = true;
+        else if (name == "VK_KHR_shader_subgroup_extended_types")
+            m_extensionCheck.HasVkshader_subgroup_extended_types = true;
+        else if (name == "VK_EXT_descriptor_indexing")
+            m_extensionCheck.HasVkBindlessDescriptor = true;
+        else if (name == "VK_EXT_descriptor_buffer")
+            m_extensionCheck.HasVkDescriptorBuffer = true;
+        else if (name == "VK_EXT_descriptor_heap")
+            m_extensionCheck.HasVkDescriptorHeap = true;
+        else if (name == "VK_EXT_shader_object")
+            m_extensionCheck.HasVkShaderObject = true;
+        else if (name == "VK_EXT_graphics_pipeline_library")
+            m_extensionCheck.HasVkGraphicsPipelineLibrary = true;
+        else if (name == "VK_EXT_extended_dynamic_state")
+            m_extensionCheck.HasVkExtendedDynamicState = true;
+        else if (name == "VK_EXT_extended_dynamic_state2")
+            m_extensionCheck.HasVkExtendedDynamicState2 = true;
+        else if (name == "VK_EXT_extended_dynamic_state3")
+            m_extensionCheck.HasVkExtendedDynamicState3 = true;
+        else if (name == "VK_KHR_draw_indirect_count")
+            m_extensionCheck.HasVkDrawIndirectCount = true;
+        else if (name == "VK_EXT_inline_uniform_block")
+            m_extensionCheck.HasVkInlineUniformBlock = true;
+        else if (name == "VK_KHR_shader_draw_parameters")
+            m_extensionCheck.HasVkShaderDrawParameters = true;
+        else if (name == "VK_EXT_mesh_shader")
+            m_extensionCheck.HasVkmesh_shader = true;
+        else if (name == "VK_EXT_device_generated_commands")
+            m_extensionCheck.HasVkDeviceGeneratedCommands = true;
+        else if (name == "VK_KHR_video_queue")
+            m_extensionCheck.HasVkVideoQueue = true;
+        else if (name == "VK_KHR_video_decode_av1")
+            m_extensionCheck.HasVkdecode_av1 = true;
+        else if (name == "VK_KHR_video_decode_h265")
+            m_extensionCheck.HasVkdecode_h265 = true;
+        else if (name == "VK_KHR_video_decode_h264")
+            m_extensionCheck.HasVkdecode_h264 = true;
+        else if (name == "VK_KHR_video_encode_h265")
+            m_extensionCheck.HasVkencode_h265 = true;
+        else if (name == "VK_KHR_video_encode_h264")
+            m_extensionCheck.HasVkencode_h264 = true;
+        else if (name == "VK_KHR_video_encode_av1")
+        {
+            m_extensionCheck.HasVkencode_av1 = true;
+            m_extensionCheck.HasVkVideoEncodeAV1 = true;
+        }
+        else if (name == "VK_KHR_video_encode_feedback2")
+            m_extensionCheck.HasVkVideoEncodeFeedback2 = true;
+        else if (name == "VK_KHR_sampler_ycbcr_conversion")
+            m_extensionCheck.HasVKYcbcr2Conversion = true;
+        else if (name == "VK_ANDROID_external_memory_android_hardware_buffer")
+            m_extensionCheck.HasVkExternalMemoryAndroidHardwareBuffer = true;
+        else if (name == "VK_EXT_shader_framebuffer_fetch")
+            m_extensionCheck.HasVkShaderFramebufferFetch = true;
+        else if (name == "VK_EXT_memory_budget")
+            m_extensionCheck.HasVkMemoryBudget = true;
+        else if (name == "VK_EXT_texture_compression_astc_hdr")
+            m_extensionCheck.HasVkTextureCompressionASTC_HDR = true;
+        else if (name == "VK_EXT_memory_priority")
+            m_extensionCheck.HasVkMemoryPriority = true;
+        else if (name == "VK_EXT_pageable_device_local_memory")
+            m_extensionCheck.HasVkPageableDeviceLocalMemory = true;
+        else if (name == "VK_EXT_host_image_copy")
+            m_extensionCheck.HasVkHostImageCopy = true;
+        else if (name == "VK_KHR_dynamic_rendering_local_read")
+            m_extensionCheck.HasVkDynamicRenderingLocalRead = true;
+        else if (name == "VK_KHR_dedicated_allocation")
+            m_extensionCheck.HasVkDedicatedAllocation = true;
+        else if (name == "VK_KHR_acceleration_structure")
+            m_extensionCheck.HasVkAccelerationStructure = true;
+        else if (name == "VK_KHR_ray_tracing_pipeline")
+            m_extensionCheck.HasVkRayTracingPipeline = true;
+        else if (name == "VK_KHR_ray_query")
+            m_extensionCheck.HasVkRayQuery = true;
+        else if (name == "VK_KHR_fragment_shading_rate")
+            m_extensionCheck.HasVkfragment_shading_rate = true;
+        else if (name == "VK_KHR_cooperative_matrix")
+            m_extensionCheck.HasVkCooperativeMatrix = true;
+        else if (name == "VK_EXT_robustness2")
+            m_extensionCheck.HasVkRobustness2 = true;
+        else if (name == "VK_EXT_image_robustness")
+            m_extensionCheck.HasVkImageRobustness = true;
+        else if (name == "VK_KHR_create_renderpass2")
+            m_extensionCheck.HasVkCreateRenderPass2 = true;
+    }
+}
 
 } // namespace UHE::RHI::VULKAN

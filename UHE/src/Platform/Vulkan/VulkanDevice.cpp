@@ -79,6 +79,7 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     m_Context.instance = &m_Instance;
     m_Context.physicalDevice = &m_PhysicalDevice;
     m_Context.logicalDevice = &m_LogicalDevice;
+    m_Context.CheckExtensions = &extCheck;
     m_Context.swapChain = &m_SwapChain;
     m_Context.device = this;
     m_Context.descriptorManager = &m_DescriptorManager;

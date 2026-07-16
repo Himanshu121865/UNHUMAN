@@ -73,7 +73,7 @@ void VulkanBuffer::CopyTo(VulkanBuffer& dstBuffer, vk::DeviceSize size, vk::raii
 void VulkanVertexBuffer::Create(VmaAllocator allocator, const void* vertexData, uint32_t vertexCount, uint32_t stride)
 {
     m_VertexCount = vertexCount;
-    vk::DeviceSize bufferSize = static_cast<vk::DeviceSize>(vertexCount * stride);
+    auto bufferSize = static_cast<vk::DeviceSize>(static_cast<size_t>(vertexCount) * stride);
 
     VulkanBuffer stagingBuffer;
     stagingBuffer.init(allocator, bufferSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -91,7 +91,7 @@ void VulkanVertexBuffer::Create(VmaAllocator allocator, const void* vertexData, 
 void VulkanIndexBuffer::Create(VmaAllocator allocator, const std::vector<uint32_t>& indices)
 {
     m_IndexCount = static_cast<uint32_t>(indices.size());
-    vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    auto bufferSize = static_cast<vk::DeviceSize>(sizeof(indices[0]) * indices.size());
 
     VulkanBuffer stagingBuffer;
     stagingBuffer.init(allocator, bufferSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);

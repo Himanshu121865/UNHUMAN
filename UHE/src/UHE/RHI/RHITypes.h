@@ -216,7 +216,8 @@ struct ColorAttachment {
     StoreOp              storeOp        = StoreOp::Store;
     glm::vec4            clearColor     = {0.0f, 0.0f, 0.0f, 1.0f};
     TextureFormat        format         = TextureFormat::BGRA8_SRGB;
-    TextureUsage         usage          = TextureUsage::None; // Bitmask of TextureUsage flags
+    TextureUsage         initialusage   = TextureUsage::None; // Bitmask of TextureUsage flags
+    TextureUsage         finalusage     = TextureUsage::None; // Bitmask of TextureUsage flags
     u32                  sampleCount    = 1;
     LoadOp               stencilLoadOp  = LoadOp::DontCare;
     StoreOp              stencilStoreOp = StoreOp::DontCare;

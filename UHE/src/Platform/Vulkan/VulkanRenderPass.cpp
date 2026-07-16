@@ -20,8 +20,8 @@ void VulkanRenderPass::Init(VulkanContext& ctx, UHE::RHI::RenderPassDesc& render
                                .storeOp = ToVkStoreOp(src.storeOp),
                                .stencilLoadOp = ToVkLoadOp(src.stencilLoadOp),
                                .stencilStoreOp = ToVkStoreOp(src.stencilStoreOp),
-                               .initialLayout = ToVkImageLayout(src.usage),
-                               .finalLayout = vk::ImageLayout::eColorAttachmentOptimal});
+                               .initialLayout = ToVkImageLayout(src.initialusage),
+                               .finalLayout = ToVkImageLayout(src.finalusage)});
     }
 
     const auto vkSubpasses = reinterpret_cast<const vk::SubpassDescription*>(renderdesc.subpasses);

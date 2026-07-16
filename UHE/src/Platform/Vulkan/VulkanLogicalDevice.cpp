@@ -31,31 +31,8 @@ void VulkanLogicalDevice::initialize(VulkanPhysicalDevice& physicalDevice, VkSur
         throw std::runtime_error("Failed to find a suitable queue family!");
     }
 
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                       vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                       vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
-        featureChain;
-
-    auto& features2 = featureChain.get<vk::PhysicalDeviceFeatures2>();
-    auto& vulkan11Features = featureChain.get<vk::PhysicalDeviceVulkan11Features>();
-    auto& vulkan12Features = featureChain.get<vk::PhysicalDeviceVulkan12Features>();
-    auto& vulkan13Features = featureChain.get<vk::PhysicalDeviceVulkan13Features>();
-    auto& dynamicStateFeatures = featureChain.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
-
-    features2.features.samplerAnisotropy = VK_TRUE;
-    features2.features.independentBlend = VK_TRUE;
-
-    vulkan11Features.shaderDrawParameters = VK_TRUE;
-
-    vulkan13Features.dynamicRendering = VK_TRUE;
-    vulkan13Features.synchronization2 = VK_TRUE;
-
-    dynamicStateFeatures.extendedDynamicState = VK_TRUE;
-
-    vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-    vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
-    vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    CheckExtens.TickTheAvailableExtension(*phyDevice);
+    auto deviceExtensions = CheckExtens.GetEnabledDeviceExtensions();
 
     float queuePriority = 1.0f;
     vk::DeviceQueueCreateInfo deviceQueueCreateInfo{.flags = {},
@@ -63,14 +40,14 @@ void VulkanLogicalDevice::initialize(VulkanPhysicalDevice& physicalDevice, VkSur
                                                     .queueCount = 1,
                                                     .pQueuePriorities = &queuePriority};
 
-    vk::DeviceCreateInfo deviceCreateInfo{.pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
+    vk::DeviceCreateInfo deviceCreateInfo{.pNext = CheckExtens.BuildDeviceFeatureChain(),
                                           .flags = {},
                                           .queueCreateInfoCount = 1,
                                           .pQueueCreateInfos = &deviceQueueCreateInfo,
                                           .enabledLayerCount = 0,
                                           .ppEnabledLayerNames = nullptr,
-                                          .enabledExtensionCount = static_cast<u32>(requiredDeviceExtension.size()),
-                                          .ppEnabledExtensionNames = requiredDeviceExtension.data(),
+                                          .enabledExtensionCount = static_cast<u32>(deviceExtensions.size()),
+                                          .ppEnabledExtensionNames = deviceExtensions.data(),
                                           .pEnabledFeatures = nullptr};
 
     m_logicalDevice = vk::raii::Device(phyDevice, deviceCreateInfo);
