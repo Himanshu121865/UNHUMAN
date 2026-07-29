@@ -1,12 +1,14 @@
 #pragma once
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
+#include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanDescriptorManager.h"
 #include "Platform/Vulkan/VulkanFrameContext.h"
 #include "Platform/Vulkan/VulkanInstance.h"
 #include "Platform/Vulkan/VulkanLogicalDevice.h"
 #include "Platform/Vulkan/VulkanPhysicalDevice.h"
 #include "Platform/Vulkan/VulkanSwapChain.h"
+#include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "UHE/RHI/RHIDevice.h"
 
 namespace UHE::RHI::VULKAN
@@ -50,15 +52,14 @@ public:
         return m_PhysicalDevice.GetLogicalDeviceInfo(vendorID, deviceID);
     };
 
-    [[nodiscard]] vk::raii::Queue& GetGraphicsQueue() { return m_LogicalDevice.getGraphicsQueue(); }
-    [[nodiscard]] VulkanLogicalDevice& getLogicalDevClass() { return m_LogicalDevice; }
-    [[nodiscard]] VulkanInstance& getInstanceClass() { return m_Instance; }
-    [[nodiscard]] VulkanPhysicalDevice& getPhysicalDevClass() { return m_PhysicalDevice; }
-    [[nodiscard]] VulkanSwapChain& getSwapChainClass() { return m_SwapChain; }
-    [[nodiscard]] const u32& ImageIndex() { return m_ImageIndex; }
-    [[nodiscard]] VulkanDescriptorManager* GetDescriptorManager() { return &m_DescriptorManager; }
+    [[nodiscard]] inline vk::raii::Queue& GetGraphicsQueue() { return m_LogicalDevice.getGraphicsQueue(); }
+    [[nodiscard]] inline VulkanLogicalDevice& getLogicalDevClass() { return m_LogicalDevice; }
+    [[nodiscard]] inline VulkanInstance& getInstanceClass() { return m_Instance; }
+    [[nodiscard]] inline VulkanPhysicalDevice& getPhysicalDevClass() { return m_PhysicalDevice; }
+    [[nodiscard]] inline VulkanSwapChain& getSwapChainClass() { return m_SwapChain; }
+    [[nodiscard]] inline const u32& ImageIndex() { return m_ImageIndex; }
+    [[nodiscard]] inline VulkanDescriptorManager* GetDescriptorManager() { return &m_DescriptorManager; }
     void ImmediateSubmit(std::function<void(vk::raii::CommandBuffer& cmd)>&& function);
-
 
 private:
     void InitVulkan(const SwapchainDesc& swapDesc);
@@ -68,6 +69,8 @@ private:
     // ─── Immediate Submission (Uploads) ───────────────────────────
 
 private:
+    VulkanContext m_Context;
+
     // Core Vulkan abstractions
     VulkanInstance m_Instance;
     VulkanPhysicalDevice m_PhysicalDevice;
@@ -75,6 +78,7 @@ private:
     VulkanSwapChain m_SwapChain;
     VmaAllocator m_Allocator = nullptr;
     VulkanDescriptorManager m_DescriptorManager;
+    VulkanExtensionCheck m_ExtensionCheck;
 
     GLFWwindow* m_WindowHandle = nullptr;
     u32 m_WindowWidth;

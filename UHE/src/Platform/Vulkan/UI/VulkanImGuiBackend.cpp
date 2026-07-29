@@ -7,9 +7,9 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 // clang-format on
+#include "Platform/Vulkan/VulkanCommandBuffer.h"
 #include "Platform/Vulkan/VulkanDevice.h"
 #include "Platform/Vulkan/VulkanLogicalDevice.h"
-#include "Platform/Vulkan/VulkanCommandBuffer.h"
 #include "UHE/Core/Application.h"
 
 namespace UHE::RHI::VULKAN
@@ -36,13 +36,12 @@ void VulkanImGuiLayer::OnAttach()
                                          {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
                                          {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
 
-    vk::DescriptorPoolCreateInfo poolInfo{
-        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = static_cast<uint32_t>(1000 * IM_ARRAYSIZE(pool_sizes)),
-        .poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes)),
-        .pPoolSizes = reinterpret_cast<vk::DescriptorPoolSize*>(pool_sizes)
-    };
-    m_DescriptorPool = std::make_unique<vk::raii::DescriptorPool>(m_Device->getLogicalDevClass().getLogicalDevice(), poolInfo);
+    vk::DescriptorPoolCreateInfo poolInfo{.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                                          .maxSets = static_cast<uint32_t>(1000 * IM_ARRAYSIZE(pool_sizes)),
+                                          .poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes)),
+                                          .pPoolSizes = reinterpret_cast<vk::DescriptorPoolSize*>(pool_sizes)};
+    m_DescriptorPool =
+        std::make_unique<vk::raii::DescriptorPool>(m_Device->getLogicalDevClass().getLogicalDevice(), poolInfo);
 
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = *m_Device->getInstanceClass().getInstance();
@@ -59,7 +58,7 @@ void VulkanImGuiLayer::OnAttach()
 
     VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo = {};
     pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    static VkFormat colorFormat = static_cast<VkFormat>(m_Device->getSwapChainClass().GetSurfaceFormat().format); 
+    static VkFormat colorFormat = static_cast<VkFormat>(m_Device->getSwapChainClass().GetSurfaceFormat().format);
     pipelineRenderingCreateInfo.colorAttachmentCount = 1;
     pipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
 
@@ -102,27 +101,23 @@ void VulkanImGuiLayer::End()
     vk::raii::ImageView& swapchainImageView = swapchain.GetImageView(imageIndex);
     vk::Extent2D extent = swapchain.GetExtent();
 
-    
-    vk::ImageMemoryBarrier barrier{
-        .srcAccessMask = {},
-        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eColorAttachmentRead,
-        .oldLayout = vk::ImageLayout::eUndefined,
-        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = swapchainImage,
-        .subresourceRange = {
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };
+    vk::ImageMemoryBarrier barrier{.srcAccessMask = {},
+                                   .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite |
+                                                    vk::AccessFlagBits::eColorAttachmentRead,
+                                   .oldLayout = vk::ImageLayout::eUndefined,
+                                   .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                   .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                   .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                   .image = swapchainImage,
+                                   .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                        .baseMipLevel = 0,
+                                                        .levelCount = 1,
+                                                        .baseArrayLayer = 0,
+                                                        .layerCount = 1}};
 
-    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, barrier);
+    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, barrier);
 
-    
     vk::RenderingAttachmentInfo colorAttachment{
         .imageView = *swapchainImageView,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
@@ -131,26 +126,21 @@ void VulkanImGuiLayer::End()
         .resolveImageLayout = {},
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{vk::ClearColorValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}}}
-    };
+        .clearValue = vk::ClearValue{vk::ClearColorValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}}}};
 
-    vk::RenderingInfo renderingInfo{
-        .flags = {},
-        .renderArea = { vk::Offset2D{0, 0}, extent },
-        .layerCount = 1,
-        .viewMask = 0,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment,
-        .pDepthAttachment = nullptr,
-        .pStencilAttachment = nullptr
-    };
+    vk::RenderingInfo renderingInfo{.flags = {},
+                                    .renderArea = {vk::Offset2D{0, 0}, extent},
+                                    .layerCount = 1,
+                                    .viewMask = 0,
+                                    .colorAttachmentCount = 1,
+                                    .pColorAttachments = &colorAttachment,
+                                    .pDepthAttachment = nullptr,
+                                    .pStencilAttachment = nullptr};
 
     cmd.beginRendering(renderingInfo);
 
-    
     ImGui_ImplVulkan_RenderDrawData(draw_data, *cmd);
 
-    
     cmd.endRendering();
 
     barrier.oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
@@ -158,7 +148,8 @@ void VulkanImGuiLayer::End()
     barrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
     barrier.dstAccessMask = {};
 
-    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eBottomOfPipe, {}, nullptr, nullptr, barrier);
+    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eBottomOfPipe, {},
+                        nullptr, nullptr, barrier);
 
     ImGuiIO& io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)

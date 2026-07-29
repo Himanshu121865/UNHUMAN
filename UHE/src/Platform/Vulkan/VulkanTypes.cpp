@@ -75,4 +75,93 @@ vk::Format ShaderDataTypeToVulkanFormat(ShaderDataType type)
     }
     return vk::Format::eUndefined;
 }
+
+vk::Format ToVkFormat(TextureFormat format)
+{
+    switch (format)
+    {
+        case TextureFormat::RGBA8_UNORM:
+            return vk::Format::eR8G8B8A8Unorm;
+        case TextureFormat::RGBA8_SRGB:
+            return vk::Format::eR8G8B8A8Srgb;
+        case TextureFormat::BGRA8_UNORM:
+            return vk::Format::eB8G8R8A8Unorm;
+        case TextureFormat::BGRA8_SRGB:
+            return vk::Format::eB8G8R8A8Srgb;
+        case TextureFormat::D24_UNORM_S8:
+            return vk::Format::eD32SfloatS8Uint;
+        case TextureFormat::D32_FLOAT:
+            return vk::Format::eD32Sfloat;
+        case TextureFormat::R32_SINT:
+            return vk::Format::eR32Sint;
+        default:
+            return vk::Format::eUndefined;
+    }
+}
+
+vk::SampleCountFlagBits ToVkSample(u32 sampleCount)
+{
+    switch (sampleCount)
+    {
+        case 1:
+            return vk::SampleCountFlagBits::e1;
+        case 2:
+            return vk::SampleCountFlagBits::e2;
+        case 4:
+            return vk::SampleCountFlagBits::e4;
+        case 8:
+            return vk::SampleCountFlagBits::e8;
+        case 16:
+            return vk::SampleCountFlagBits::e16;
+        case 32:
+            return vk::SampleCountFlagBits::e32;
+        case 64:
+            return vk::SampleCountFlagBits::e64;
+        default:
+            return vk::SampleCountFlagBits::e1;
+    }
+}
+
+vk::AttachmentLoadOp ToVkLoadOp(LoadOp loadOp)
+{
+    switch (loadOp)
+    {
+        case LoadOp::Load:
+            return vk::AttachmentLoadOp::eLoad;
+        case LoadOp::Clear:
+            return vk::AttachmentLoadOp::eClear;
+        case LoadOp::DontCare:
+            return vk::AttachmentLoadOp::eDontCare;
+        default:
+            return vk::AttachmentLoadOp::eDontCare;
+    }
+}
+
+vk::AttachmentStoreOp ToVkStoreOp(StoreOp storeOp)
+{
+    switch (storeOp)
+    {
+        case StoreOp::Store:
+            return vk::AttachmentStoreOp::eStore;
+        case StoreOp::DontCare:
+            return vk::AttachmentStoreOp::eDontCare;
+        default:
+            return vk::AttachmentStoreOp::eDontCare;
+    }
+}
+
+vk::ImageLayout ToVkImageLayout(TextureUsage usage)
+{
+    if (usage & TextureUsage::ColorAttach)
+        return vk::ImageLayout::eColorAttachmentOptimal;
+    else if (usage & TextureUsage::DepthAttach)
+        return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    else if (usage & TextureUsage::Sampled)
+        return vk::ImageLayout::eShaderReadOnlyOptimal;
+    else if (usage & TextureUsage::Storage)
+        return vk::ImageLayout::eGeneral;
+    else
+        return vk::ImageLayout::eUndefined;
+}
+
 } // namespace UHE::RHI::VULKAN

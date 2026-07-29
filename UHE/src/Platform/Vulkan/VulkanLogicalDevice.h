@@ -8,15 +8,17 @@ namespace UHE::RHI::VULKAN
 {
 class VulkanPhysicalDevice;
 class VulkanInstance;
-
+class VulkanExtensionCheck;
 class VulkanLogicalDevice
 {
 public:
     VulkanLogicalDevice() = default;
+    ~VulkanLogicalDevice() = default;
     VulkanLogicalDevice(const VulkanLogicalDevice&) = delete;
     VulkanLogicalDevice& operator=(const VulkanLogicalDevice&) = delete;
 
-    void initialize(VulkanPhysicalDevice& physicalDevice, VkSurfaceKHR surface, VulkanInstance& instance);
+    void initialize(VulkanPhysicalDevice& physicalDevice, VkSurfaceKHR surface, VulkanInstance& instance,
+                    VulkanExtensionCheck& CheckExtens);
     void CreateSurface(VulkanInstance& instance, GLFWwindow* window);
 
     void cleanup();

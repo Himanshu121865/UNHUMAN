@@ -1,5 +1,6 @@
 #pragma once
 
+#define VK_NO_PROTOTYPES
 #define ENTT_STANDARD_CPP 1
 #ifndef GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
