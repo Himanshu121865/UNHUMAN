@@ -1,9 +1,13 @@
 #include "uhepch.h" // pragma
 #include "VulkanGraphicPipeline.h"
+#include <vulkan/vulkan_raii.hpp>
+#include "Platform/Vulkan/VulkanFramebuffer.h"
 #include "UHE/RHI/RHIDevice.h"
 #include "UHE/RHI/RHITypes.h"
 #include "VulkanDescriptorManager.h"
+#include "VulkanExtensionCheck.h"
 #include "VulkanLogicalDevice.h"
+#include "VulkanRenderPass.h"
 #include "VulkanShader.h"
 #include "VulkanTypes.h"
 #include "vulkan/vulkan.hpp"
@@ -19,10 +23,11 @@ void VulkanGraphicPipeline::Init() {}
 void VulkanGraphicPipeline::Bind() {}
 
 void VulkanGraphicPipeline::createGraphicsPipeline(VulkanLogicalDevice& Device,
-                                                   VulkanDescriptorManager& descriptorManager,
+                                                   VulkanDescriptorManager& descriptorManager, const VulkanContext& ctx,
                                                    const GraphicsPipelineDesc& desc)
 {
 
+    const auto& check = ctx.CheckExtensions;
     auto vertModule = reinterpret_cast<VulkanShader*>(desc.vertexShader)->GetModule();
     auto fragModule = reinterpret_cast<VulkanShader*>(desc.fragmentShader)->GetModule();
 
@@ -139,6 +144,7 @@ void VulkanGraphicPipeline::createGraphicsPipeline(VulkanLogicalDevice& Device,
     vk::PipelineViewportStateCreateInfo viewportState{.flags = {}, .viewportCount = 1, .scissorCount = 1};
 
     std::vector<vk::Format> colorFormats;
+    colorFormats.reserve(desc.colorAttachmentCount);
     for (u32 i = 0; i < desc.colorAttachmentCount; i++)
     {
         colorFormats.emplace_back(MapTextureFormat(desc.colorFormats[i]));
@@ -169,6 +175,12 @@ void VulkanGraphicPipeline::createGraphicsPipeline(VulkanLogicalDevice& Device,
         .layout = *m_PipelineLayout, // Extracts the raw vk::PipelineLayout handle
         .renderPass = nullptr        // Correct for Dynamic Rendering
     };
+    if (!check->IsEnable("VK_KHR_dynamic_rendering"))
+    {
+        m_FallbackRenderPass.Init(ctx, desc.renderPassDesc);
+        pipelineInfo.renderPass = m_FallbackRenderPass.GetRenderPass();
+        pipelineInfo.pNext = nullptr;
+    }
 
     m_GraphicsPipeline = vk::raii::Pipeline(Device.getLogicalDevice(), nullptr, pipelineInfo);
 }

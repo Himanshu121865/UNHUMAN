@@ -9,15 +9,13 @@ void VulkanFramebuffer::Init(const FramebufferDesc& desc)
 {
     auto& ctx = GetVulkanContext();
 
-    vk::FramebufferCreateInfo framebufferInfo{
-        .flags = {},
-        .renderPass = desc.renderPass,
-        .attachmentCount = desc.attachmentCount,
-        .pAttachments = desc.attachments,
-        .width = desc.width,
-        .height = desc.height,
-        .layers = desc.layers
-    };
+    vk::FramebufferCreateInfo framebufferInfo{.flags = {},
+                                              .renderPass = desc.renderPass,
+                                              .attachmentCount = desc.attachmentCount,
+                                              .pAttachments = desc.attachments,
+                                              .width = desc.width,
+                                              .height = desc.height,
+                                              .layers = desc.layers};
 
     m_Framebuffer = vk::raii::Framebuffer(*ctx.logicalDeviceHandle, framebufferInfo);
 }

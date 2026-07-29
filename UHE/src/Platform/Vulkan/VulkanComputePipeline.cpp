@@ -3,4 +3,5 @@
 
 namespace UHE::RHI::VULKAN
 {
-}
+void VulkanComputePipeline::Init() {};
+} // namespace UHE::RHI::VULKAN

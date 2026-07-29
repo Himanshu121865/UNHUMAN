@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace UHE::RHI::VULKAN
@@ -77,11 +78,22 @@ public:
     [[nodiscard]] const VulkanExtensionIsEnableCheck GetVulkanExtensionFlags() const noexcept
     {
         return m_extensionCheck;
-    }
-
+    };
+    [[nodiscard("extensions check don't get used")]] bool IsEnable(const std::string_view ExtenstionName) const noexcept
+    {
+        auto extensions = GetEnabledDeviceExtensions();
+        for (const auto* ext : extensions)
+        {
+            if (ExtenstionName == ext)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
     [[nodiscard]] std::vector<const char*> GetEnabledDeviceExtensions() const;
     [[nodiscard]] vk::PhysicalDeviceFeatures2* BuildDeviceFeatureChain();
-    void TickTheAvailableExtension(vk::PhysicalDevice PhysicalDevice);
+    void TickTheAvailableExtension(const vk::raii::PhysicalDevice& PhysicalDevice);
 
 private:
     VulkanExtensionIsEnableCheck m_extensionCheck;

@@ -1,6 +1,7 @@
 #include "uhepch.h"
 #include "VulkanExtensionCheck.h"
 #include <vector>
+#include <volk.h>
 #include <vulkan/vulkan_core.h>
 #include "vulkan/vulkan.hpp"
 
@@ -41,7 +42,10 @@ std::vector<const char*> VulkanExtensionCheck::GetEnabledDeviceExtensions() cons
     if (m_extensionCheck.HasVkShaderObject)
         extensions.emplace_back("VK_EXT_shader_object");
     if (m_extensionCheck.HasVkGraphicsPipelineLibrary)
+    {
         extensions.emplace_back("VK_EXT_graphics_pipeline_library");
+        extensions.emplace_back("VK_KHR_pipeline_library");
+    }
     if (m_extensionCheck.HasVkExtendedDynamicState)
         extensions.emplace_back("VK_EXT_extended_dynamic_state");
     if (m_extensionCheck.HasVkExtendedDynamicState2)
@@ -58,7 +62,10 @@ std::vector<const char*> VulkanExtensionCheck::GetEnabledDeviceExtensions() cons
     if (m_extensionCheck.HasVkmesh_shader)
         extensions.emplace_back("VK_EXT_mesh_shader");
     if (m_extensionCheck.HasVkDeviceGeneratedCommands)
+    {
         extensions.emplace_back("VK_EXT_device_generated_commands");
+        extensions.emplace_back("VK_KHR_maintenance5");
+    }
 
     if (m_extensionCheck.HasVkVideoQueue)
         extensions.emplace_back("VK_KHR_video_queue");
@@ -76,6 +83,11 @@ std::vector<const char*> VulkanExtensionCheck::GetEnabledDeviceExtensions() cons
         extensions.emplace_back("VK_KHR_video_encode_av1");
     if (m_extensionCheck.HasVkVideoEncodeAV1)
         extensions.emplace_back("VK_KHR_video_encode_av1");
+    if (m_extensionCheck.HasVkdecode_av1 || m_extensionCheck.HasVkdecode_h265 || m_extensionCheck.HasVkdecode_h264)
+        extensions.emplace_back("VK_KHR_video_decode_queue");
+    if (m_extensionCheck.HasVkencode_h265 || m_extensionCheck.HasVkencode_h264 || m_extensionCheck.HasVkencode_av1 || m_extensionCheck.HasVkVideoEncodeAV1)
+        extensions.emplace_back("VK_KHR_video_encode_queue");
+
     if (m_extensionCheck.HasVkVideoEncodeFeedback2)
         extensions.emplace_back("VK_KHR_video_encode_feedback2");
     if (m_extensionCheck.HasVKYcbcr2Conversion)
@@ -144,6 +156,7 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
     // ── Vulkan 1.2 Features ──
     if (m_extensionCheck.HasVkBindlessDescriptor)
     {
+        m_v12Features.descriptorIndexing = VK_TRUE;
         m_v12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
         m_v12Features.descriptorBindingPartiallyBound = VK_TRUE;
         m_v12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
@@ -252,6 +265,7 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
     }
     if (m_extensionCheck.HasVkRobustness2)
     {
+        m_features2.features.robustBufferAccess = VK_TRUE;
         m_robustness2Features.robustBufferAccess2 = VK_TRUE;
         m_robustness2Features.robustImageAccess2 = VK_TRUE;
         m_robustness2Features.nullDescriptor = VK_TRUE;
@@ -283,15 +297,23 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
         pNextChainTail = &m_dynamicRenderingLocalReadFeatures.pNext;
     }
 
+    // NOTE: Extensions that don't need feature structs (just the extension string is enough):
+    // VK_KHR_push_descriptor, VK_KHR_dedicated_allocation, VK_KHR_create_renderpass2,
+    // VK_KHR_maintenance1/2/3, VK_EXT_memory_budget, VK_KHR_calibrated_timestamps,
+    // VK_KHR_video_* (encode/decode), VK_ANDROID_external_memory_android_hardware_buffer
+
     *pNextChainTail = nullptr;
     return &m_features2;
 };
 
-void VulkanExtensionCheck::TickTheAvailableExtension(vk::PhysicalDevice PhysicalDevice)
+void VulkanExtensionCheck::TickTheAvailableExtension(const vk::raii::PhysicalDevice& PhysicalDevice)
 {
-    auto availableExtension = PhysicalDevice.enumerateDeviceExtensionProperties();
+    uint32_t propertyCount = 0;
+    vkEnumerateDeviceExtensionProperties(*PhysicalDevice, nullptr, &propertyCount, nullptr);
+    std::vector<VkExtensionProperties> properties(propertyCount);
+    vkEnumerateDeviceExtensionProperties(*PhysicalDevice, nullptr, &propertyCount, properties.data());
 
-    for (const auto& ext : availableExtension)
+    for (const auto& ext : properties)
     {
         std::string_view name = ext.extensionName;
         if (name == "VK_KHR_dynamic_rendering")

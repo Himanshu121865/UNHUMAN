@@ -1,5 +1,6 @@
 #pragma once
 #include <vulkan/vulkan_raii.hpp>
+#include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanSwapChain.h"
 #include "UHE/RHI/RHICommadBuffer.h"
 // #include "VulkanCommandPool.h"
@@ -59,13 +60,15 @@ public:
     void Draw(u32 vertexCount, u32 firstVertex = 0) override;
     void DrawIndexed(u32 indexCount, u32 firstIndex = 0, i32 vertexOffset = 0) override;
 
-    void SetContext(vk::raii::Device* device, VulkanDescriptorManager* descriptorManager)
+    void SetContext(vk::raii::Device* device, VulkanDescriptorManager* descriptorManager, const VulkanContext* ctx)
     {
+        m_ctx = ctx;
         m_LogDevice = device;
         m_DescriptorManager = descriptorManager;
     }
 
 private:
+    const VulkanContext* m_ctx = nullptr;
     vk::raii::Device* m_LogDevice = nullptr;
     VulkanDescriptorManager* m_DescriptorManager = nullptr;
     vk::PipelineLayout m_CurrentPipelineLayout = nullptr;

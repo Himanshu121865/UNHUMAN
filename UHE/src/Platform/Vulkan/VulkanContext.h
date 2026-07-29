@@ -1,6 +1,6 @@
 #pragma once
-#include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan_raii.hpp>
 #include "UHE/Core/Core.h"
 
 namespace UHE::RHI::VULKAN
@@ -13,6 +13,7 @@ class VulkanSwapChain;
 class VulkanDevice;
 class VulkanDescriptorManager;
 class VulkanExtensionCheck;
+class VulkanGraphicPipeline;
 
 struct VulkanContext
 {
@@ -23,6 +24,7 @@ struct VulkanContext
     VulkanSwapChain* swapChain = nullptr;
     VulkanDevice* device = nullptr;
     VulkanDescriptorManager* descriptorManager = nullptr;
+    VulkanGraphicPipeline* graphicPipeline;
 
     VmaAllocator allocator = nullptr;
     vk::raii::Device* logicalDeviceHandle = nullptr;

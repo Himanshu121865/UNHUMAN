@@ -3,5 +3,5 @@
 
 namespace UHE::RHI::VULKAN
 {
-
+void VulkanDescriptorPool::Init() {};
 };

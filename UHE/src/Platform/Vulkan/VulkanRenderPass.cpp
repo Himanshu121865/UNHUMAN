@@ -1,12 +1,13 @@
 #include "VulkanRenderPass.h"
+#include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanContext.h"
 #include "UHE/RHI/RHITypes.h"
 #include "VulkanTypes.h"
+#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
-void VulkanRenderPass::Init(VulkanContext& ctx, UHE::RHI::RenderPassDesc& renderdesc)
-
+void VulkanRenderPass::Init(const VulkanContext& ctx, const UHE::RHI::RenderPassDesc& renderdesc)
 {
     std::vector<vk::AttachmentDescription> attachments;
     for (u32 i = 0; i < renderdesc.colorAttachmentCount; i++)
@@ -26,7 +27,7 @@ void VulkanRenderPass::Init(VulkanContext& ctx, UHE::RHI::RenderPassDesc& render
 
     const auto vkSubpasses = reinterpret_cast<const vk::SubpassDescription*>(renderdesc.subpasses);
 
-    vk::RenderPassCreateInfo{
+    vk::RenderPassCreateInfo RenderPass{
         .flags = {},
         .attachmentCount = renderdesc.colorAttachmentCount + (renderdesc.hasDepth ? 1 : 0),
         .pAttachments = attachments.data(),
@@ -34,5 +35,6 @@ void VulkanRenderPass::Init(VulkanContext& ctx, UHE::RHI::RenderPassDesc& render
         .pSubpasses = vkSubpasses,
         .dependencyCount = renderdesc.dependencyCount,
     };
+    m_RenderPass = vk::raii::RenderPass(*ctx.logicalDeviceHandle, RenderPass);
 }
 }; // namespace UHE::RHI::VULKAN

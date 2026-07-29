@@ -8,6 +8,7 @@
 #include "Platform/Vulkan/VulkanLogicalDevice.h"
 #include "Platform/Vulkan/VulkanPhysicalDevice.h"
 #include "Platform/Vulkan/VulkanSwapChain.h"
+#include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "UHE/RHI/RHIDevice.h"
 
 namespace UHE::RHI::VULKAN
@@ -77,6 +78,7 @@ private:
     VulkanSwapChain m_SwapChain;
     VmaAllocator m_Allocator = nullptr;
     VulkanDescriptorManager m_DescriptorManager;
+    VulkanExtensionCheck m_ExtensionCheck;
 
     GLFWwindow* m_WindowHandle = nullptr;
     u32 m_WindowWidth;

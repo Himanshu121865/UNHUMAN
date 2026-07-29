@@ -29,10 +29,10 @@ void VulkanTexture::Init(VulkanDevice& device, const TextureDesc& desc)
     vk::Format format = MapTextureFormat(desc.format);
 
     vk::ImageUsageFlags usage{};
-    if (desc.usage & TextureUsage::Sampled) usage |= vk::ImageUsageFlagBits::eSampled;
+    if (desc.usage & TextureUsage::Sampled)     usage |= vk::ImageUsageFlagBits::eSampled;
     if (desc.usage & TextureUsage::ColorAttach) usage |= vk::ImageUsageFlagBits::eColorAttachment;
     if (desc.usage & TextureUsage::DepthAttach) usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    if (desc.usage & TextureUsage::Storage) usage |= vk::ImageUsageFlagBits::eStorage;
+    if (desc.usage & TextureUsage::Storage)     usage |= vk::ImageUsageFlagBits::eStorage;
     if (desc.usage & TextureUsage::TransferSrc) usage |= vk::ImageUsageFlagBits::eTransferSrc;
     if (desc.usage & TextureUsage::TransferDst) usage |= vk::ImageUsageFlagBits::eTransferDst;
 
@@ -46,7 +46,7 @@ void VulkanTexture::Init(VulkanDevice& device, const TextureDesc& desc)
 
     if (desc.usage & TextureUsage::Sampled)
     {
-        textureSampler = CreateSampler(vk::Filter::eLinear, vk::Filter::eLinear,
+        textureSampler = CreateSampler( vk::Filter::eLinear, vk::Filter::eLinear,
                                         vk::SamplerMipmapMode::eLinear,
                                         vk::SamplerAddressMode::eRepeat,
                                         static_cast<float>(m_MipLevels));
@@ -145,7 +145,8 @@ void VulkanTexture::ExecuteCopyCommand(VulkanDevice& device, VkBuffer srcBuffer,
         TransitionLayout(cmd, dstImage,
             vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
             vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer);
+            vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
+            vk::ImageAspectFlagBits::eColor, mipLevels);
 
         vk::BufferImageCopy region{
             .bufferOffset = 0,

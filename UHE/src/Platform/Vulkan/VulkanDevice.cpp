@@ -43,8 +43,7 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     m_LogicalDevice.CreateSurface(m_Instance, m_WindowHandle);
     m_PhysicalDevice.initPhysicalDevice(m_Instance);
 
-    VulkanExtensionCheck extCheck;
-    m_LogicalDevice.initialize(m_PhysicalDevice, *m_LogicalDevice.getSurface(), m_Instance, extCheck);
+    m_LogicalDevice.initialize(m_PhysicalDevice, *m_LogicalDevice.getSurface(), m_Instance, m_ExtensionCheck);
     m_Allocator = m_LogicalDevice.getAllocator();
 
     m_SwapChain.createSwapChain(m_LogicalDevice.getLogicalDevice(), m_PhysicalDevice.getPhysicalDevice(),
@@ -73,15 +72,16 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
 
     for (auto& frame : m_Frames)
     {
-        frame.GetCommandBuffer().SetContext(&m_LogicalDevice.getLogicalDevice(), &m_DescriptorManager);
+        frame.GetCommandBuffer().SetContext(&m_LogicalDevice.getLogicalDevice(), &m_DescriptorManager, &m_Context);
     }
 
     m_Context.instance = &m_Instance;
     m_Context.physicalDevice = &m_PhysicalDevice;
     m_Context.logicalDevice = &m_LogicalDevice;
-    m_Context.CheckExtensions = &extCheck;
+    m_Context.CheckExtensions = &m_ExtensionCheck;
     m_Context.swapChain = &m_SwapChain;
     m_Context.device = this;
+    m_Context.graphicPipeline = m_CurrentPipeline;
     m_Context.descriptorManager = &m_DescriptorManager;
     m_Context.allocator = m_Allocator;
     m_Context.logicalDeviceHandle = &m_LogicalDevice.getLogicalDevice();
@@ -198,7 +198,7 @@ ShaderHandle VulkanDevice::CreateShader(const ShaderDesc& desc)
 PipelineHandle VulkanDevice::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc)
 {
     auto* pipeline = new VulkanGraphicPipeline();
-    pipeline->createGraphicsPipeline(m_LogicalDevice, m_DescriptorManager, desc);
+    pipeline->createGraphicsPipeline(m_LogicalDevice, m_DescriptorManager, m_Context, desc);
     return reinterpret_cast<PipelineHandle>(pipeline);
 }
 
@@ -383,7 +383,8 @@ void VulkanDevice::ReadPixel(TextureHandle handle, int x, int y, void* outData)
     auto* texture = reinterpret_cast<VulkanTexture*>(handle);
     vk::Image image = texture->GetImage();
 
-    CreatedBuffer readbackBuf = ::UHE::RHI::VULKAN::CreateBuffer(4, vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_TO_CPU);
+    CreatedBuffer readbackBuf =
+        ::UHE::RHI::VULKAN::CreateBuffer(4, vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_TO_CPU);
     if (!readbackBuf.buffer)
     {
         UHE_CORE_ERROR("Failed to create readback buffer for ReadPixel!");
@@ -393,31 +394,25 @@ void VulkanDevice::ReadPixel(TextureHandle handle, int x, int y, void* outData)
     ImmediateSubmit(
         [&](vk::raii::CommandBuffer& cmd)
         {
-            TransitionLayout(cmd, image,
-                vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eTransferSrcOptimal,
-                vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eTransferRead,
-                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
+            TransitionLayout(cmd, image, vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eTransferSrcOptimal,
+                             vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eTransferRead,
+                             vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
 
-            vk::BufferImageCopy region{
-                .bufferOffset = 0,
-                .bufferRowLength = 0,
-                .bufferImageHeight = 0,
-                .imageSubresource = {
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .mipLevel = 0,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                },
-                .imageOffset = vk::Offset3D{x, y, 0},
-                .imageExtent = vk::Extent3D{1, 1, 1}
-            };
+            vk::BufferImageCopy region{.bufferOffset = 0,
+                                       .bufferRowLength = 0,
+                                       .bufferImageHeight = 0,
+                                       .imageSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                            .mipLevel = 0,
+                                                            .baseArrayLayer = 0,
+                                                            .layerCount = 1},
+                                       .imageOffset = vk::Offset3D{x, y, 0},
+                                       .imageExtent = vk::Extent3D{1, 1, 1}};
 
             cmd.copyImageToBuffer(image, vk::ImageLayout::eTransferSrcOptimal, readbackBuf.buffer, region);
 
-            TransitionLayout(cmd, image,
-                vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
-                vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eMemoryRead,
-                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
+            TransitionLayout(cmd, image, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+                             vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eMemoryRead,
+                             vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
         });
 
     void* mappedData = nullptr;

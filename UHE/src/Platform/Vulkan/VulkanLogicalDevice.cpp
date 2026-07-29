@@ -31,7 +31,7 @@ void VulkanLogicalDevice::initialize(VulkanPhysicalDevice& physicalDevice, VkSur
         throw std::runtime_error("Failed to find a suitable queue family!");
     }
 
-    CheckExtens.TickTheAvailableExtension(*phyDevice);
+    CheckExtens.TickTheAvailableExtension(phyDevice);
     auto deviceExtensions = CheckExtens.GetEnabledDeviceExtensions();
 
     float queuePriority = 1.0f;

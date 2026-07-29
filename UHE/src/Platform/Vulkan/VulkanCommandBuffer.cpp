@@ -3,16 +3,19 @@
 #include <array>
 #include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanBuffer.h"
+#include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanDescriptorManager.h"
+#include "Platform/Vulkan/VulkanDevice.h"
+#include "Platform/Vulkan/VulkanExtensionCheck.h"
+#include "Platform/Vulkan/VulkanFramebuffer.h"
 #include "Platform/Vulkan/VulkanGraphicPipeline.h"
 #include "Platform/Vulkan/VulkanTexture.h"
 #include "UHE/RHI/RHITypes.h"
+#include "UHE/Renderer/Renderer.h"
 #include "UHE/Renderer/Shader.h"
 #include "UHE/Scene/Scene.h"
 #include "VulkanCommandPool.h"
 #include "vulkan/vulkan.hpp"
-#include "UHE/Renderer/Renderer.h"
-#include "Platform/Vulkan/VulkanDevice.h"
 
 namespace UHE::RHI::VULKAN
 {
@@ -21,11 +24,10 @@ namespace UHE::RHI::VULKAN
 
 void VulkanCommandBuffer::Allocate(const vk::raii::Device& device, VulkanCommandPool& pool, bool isPrimary)
 {
-    vk::CommandBufferAllocateInfo allocInfo{
-        .commandPool = *pool.GetHandle(),
-        .level = isPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary,
-        .commandBufferCount = 1
-    };
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = *pool.GetHandle(),
+                                            .level = isPrimary ? vk::CommandBufferLevel::ePrimary
+                                                               : vk::CommandBufferLevel::eSecondary,
+                                            .commandBufferCount = 1};
 
     vk::raii::CommandBuffers cmdBuffers(device, allocInfo);
     m_CommandBuffer = std::move(cmdBuffers[0]);
@@ -38,9 +40,7 @@ void VulkanCommandBuffer::Free()
 
 void VulkanCommandBuffer::BeginCommandBuffer(vk::CommandBufferUsageFlags flags)
 {
-    vk::CommandBufferBeginInfo beginInfo{
-        .flags = flags
-    };
+    vk::CommandBufferBeginInfo beginInfo{.flags = flags};
     m_CommandBuffer.begin(beginInfo);
 }
 
@@ -76,7 +76,8 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
     vk::Extent2D renderExtent;
     m_CurrentRenderPassDesc = desc;
 
-    if (desc.colorAttachmentCount == 0) {
+    if (desc.colorAttachmentCount == 0)
+    {
         // Swapchain fallback
         auto& device = UHE::Renderer::GetDevice();
         auto& vulkanDevice = static_cast<VulkanDevice&>(device);
@@ -93,95 +94,91 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
             .resolveImageLayout = {},
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
-            .clearValue = vk::ClearValue{vk::ClearColorValue{std::array<f32, 4>{0.0f, 0.0f, 0.0f, 1.0f}}}
-        };
+            .clearValue = vk::ClearValue{vk::ClearColorValue{std::array<f32, 4>{0.0f, 0.0f, 0.0f, 1.0f}}}};
 
         colorAttachments.push_back(colorAttachment);
         renderExtent = swapChain.GetExtent();
 
-        vk::ImageMemoryBarrier barrier{
-            .srcAccessMask = vk::AccessFlags{},
-            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .oldLayout = vk::ImageLayout::eUndefined,
-            .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange = {
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };
+        vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlags{},
+                                       .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+                                       .oldLayout = vk::ImageLayout::eUndefined,
+                                       .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .image = image,
+                                       .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                            .baseMipLevel = 0,
+                                                            .levelCount = 1,
+                                                            .baseArrayLayer = 0,
+                                                            .layerCount = 1}};
         barriers.push_back(barrier);
-    } else {
+    }
+    else
+    {
         renderExtent = vk::Extent2D{desc.renderWidth, desc.renderHeight};
 
-        for (u32 i = 0; i < desc.colorAttachmentCount; i++) {
+        for (u32 i = 0; i < desc.colorAttachmentCount; i++)
+        {
             auto* texture = reinterpret_cast<VulkanTexture*>(desc.colorAttachments[i].texture);
-            if (!texture) continue;
-            
+            if (!texture)
+                continue;
+
             vk::Image image = texture->GetImage();
             vk::ImageView imageView = *texture->GetImageView();
 
-            vk::RenderingAttachmentInfo colorAttachment{
-                .imageView = imageView,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .resolveMode = {},
-                .resolveImageView = {},
-                .resolveImageLayout = {},
-                .loadOp = vk::AttachmentLoadOp::eClear,
-                .storeOp = vk::AttachmentStoreOp::eStore
-            };
-            
-            if (texture->GetDesc().format == RHI::TextureFormat::R32_SINT) {
+            vk::RenderingAttachmentInfo colorAttachment{.imageView = imageView,
+                                                        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                                        .resolveMode = {},
+                                                        .resolveImageView = {},
+                                                        .resolveImageLayout = {},
+                                                        .loadOp = vk::AttachmentLoadOp::eClear,
+                                                        .storeOp = vk::AttachmentStoreOp::eStore};
+
+            if (texture->GetDesc().format == RHI::TextureFormat::R32_SINT)
+            {
                 colorAttachment.clearValue.color = vk::ClearColorValue{
                     std::array<int32_t, 4>{(int32_t)desc.colorAttachments[i].clearColor.r, 0, 0, 0}};
-            } else {
+            }
+            else
+            {
                 colorAttachment.clearValue.color = vk::ClearColorValue{
                     std::array<f32, 4>{desc.colorAttachments[i].clearColor.r, desc.colorAttachments[i].clearColor.g,
                                        desc.colorAttachments[i].clearColor.b, desc.colorAttachments[i].clearColor.a}};
             }
-            
+
             colorAttachments.push_back(colorAttachment);
 
-            vk::ImageMemoryBarrier barrier{
-                .srcAccessMask = vk::AccessFlags{},
-                .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-                .oldLayout = vk::ImageLayout::eUndefined,
-                .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = image,
-                .subresourceRange = {
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                }
-            };
+            vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlags{},
+                                           .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+                                           .oldLayout = vk::ImageLayout::eUndefined,
+                                           .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                           .image = image,
+                                           .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                                .baseMipLevel = 0,
+                                                                .levelCount = 1,
+                                                                .baseArrayLayer = 0,
+                                                                .layerCount = 1}};
             barriers.push_back(barrier);
         }
     }
 
     vk::RenderingAttachmentInfo depthAttachmentInfo{};
-    if (desc.hasDepth && desc.depthAttachment.texture) {
+    if (desc.hasDepth && desc.depthAttachment.texture)
+    {
         auto* depthTex = reinterpret_cast<VulkanTexture*>(desc.depthAttachment.texture);
         vk::Image image = depthTex->GetImage();
-        
-        depthAttachmentInfo = vk::RenderingAttachmentInfo{
-            .imageView = *depthTex->GetImageView(),
-            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .resolveMode = {},
-            .resolveImageView = {},
-            .resolveImageLayout = {},
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f, 0}}
-        };
+
+        depthAttachmentInfo =
+            vk::RenderingAttachmentInfo{.imageView = *depthTex->GetImageView(),
+                                        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                                        .resolveMode = {},
+                                        .resolveImageView = {},
+                                        .resolveImageLayout = {},
+                                        .loadOp = vk::AttachmentLoadOp::eClear,
+                                        .storeOp = vk::AttachmentStoreOp::eStore,
+                                        .clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f, 0}}};
 
         vk::ImageMemoryBarrier barrier{};
         barrier.oldLayout = vk::ImageLayout::eUndefined;
@@ -199,23 +196,71 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
         barriers.push_back(barrier);
     }
 
-    if (!barriers.empty()) {
+    if (!m_ctx->CheckExtensions->IsEnable("VK_KHR_dynamic_rendering"))
+    {
+
+        std::vector<vk::ImageView> fbAttachments;
+        std::vector<vk::ClearValue> clearValues;
+
+        if (desc.colorAttachmentCount == 0)
+        {
+            fbAttachments.push_back(colorAttachments[0].imageView);
+            clearValues.push_back(colorAttachments[0].clearValue);
+        }
+        else
+        {
+            for (const auto& ca : colorAttachments)
+            {
+                fbAttachments.push_back(ca.imageView);
+                clearValues.push_back(ca.clearValue);
+            }
+        }
+
+        if (desc.hasDepth && desc.depthAttachment.texture)
+        {
+            fbAttachments.push_back(depthAttachmentInfo.imageView);
+            clearValues.push_back(depthAttachmentInfo.clearValue);
+        }
+
+        FramebufferDesc fbDesc{.renderPass = m_ctx->graphicPipeline->GetRenderPassHandle().GetRenderPass(),
+                               .attachmentCount = static_cast<u32>(fbAttachments.size()),
+                               .attachments = fbAttachments.data(),
+                               .width = renderExtent.width,
+                               .height = renderExtent.height,
+                               .layers = 1};
+
+        VulkanFramebuffer mFramebuffer;
+        mFramebuffer.Init(fbDesc);
+
+        vk::RenderPassBeginInfo renderPassInfo{.renderPass =
+                                                   m_ctx->graphicPipeline->GetRenderPassHandle().GetRenderPass(),
+                                               .framebuffer = mFramebuffer.GetHandle(),
+                                               .renderArea = {vk::Offset2D{0, 0}, renderExtent},
+                                               .clearValueCount = static_cast<u32>(clearValues.size()),
+                                               .pClearValues = clearValues.data()};
+
+        m_CommandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        return;
+    }
+
+    if (!barriers.empty())
+    {
         m_CommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                        vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                                            vk::PipelineStageFlagBits::eEarlyFragmentTests,
                                         vk::DependencyFlags{}, nullptr, nullptr, barriers);
     }
 
-    vk::RenderingInfo renderingInfo{
-        .flags = {},
-        .renderArea = { vk::Offset2D{0, 0}, renderExtent },
-        .layerCount = 1,
-        .viewMask = 0,
-        .colorAttachmentCount = static_cast<u32>(colorAttachments.size()),
-        .pColorAttachments = colorAttachments.empty() ? nullptr : colorAttachments.data(),
-        .pDepthAttachment = nullptr,
-        .pStencilAttachment = nullptr
-    };
-    if (desc.hasDepth && desc.depthAttachment.texture) {
+    vk::RenderingInfo renderingInfo{.flags = {},
+                                    .renderArea = {vk::Offset2D{0, 0}, renderExtent},
+                                    .layerCount = 1,
+                                    .viewMask = 0,
+                                    .colorAttachmentCount = static_cast<u32>(colorAttachments.size()),
+                                    .pColorAttachments = colorAttachments.empty() ? nullptr : colorAttachments.data(),
+                                    .pDepthAttachment = nullptr,
+                                    .pStencilAttachment = nullptr};
+    if (desc.hasDepth && desc.depthAttachment.texture)
+    {
         renderingInfo.pDepthAttachment = &depthAttachmentInfo;
         renderingInfo.pStencilAttachment = &depthAttachmentInfo;
     }
@@ -225,61 +270,64 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
 
 void VulkanCommandBuffer::EndRenderPass()
 {
+    if (!m_ctx->CheckExtensions->IsEnable("VK_KHR_dynamic_rendering"))
+    {
+        m_CommandBuffer.endRenderPass();
+        return;
+    }
     m_CommandBuffer.endRendering();
 
     std::vector<vk::ImageMemoryBarrier> barriers;
 
-    if (m_CurrentRenderPassDesc.colorAttachmentCount == 0) {
+    if (m_CurrentRenderPassDesc.colorAttachmentCount == 0)
+    {
         auto& device = UHE::Renderer::GetDevice();
         auto& vulkanDevice = static_cast<VulkanDevice&>(device);
         auto& swapChain = vulkanDevice.getSwapChainClass();
         u32 index = vulkanDevice.ImageIndex();
         vk::Image image = swapChain.GetImages()[index];
 
-        vk::ImageMemoryBarrier barrier{
-            .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .dstAccessMask = vk::AccessFlags{},
-            .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .newLayout = vk::ImageLayout::ePresentSrcKHR,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange = {
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };
+        vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+                                       .dstAccessMask = vk::AccessFlags{},
+                                       .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                       .newLayout = vk::ImageLayout::ePresentSrcKHR,
+                                       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .image = image,
+                                       .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                            .baseMipLevel = 0,
+                                                            .levelCount = 1,
+                                                            .baseArrayLayer = 0,
+                                                            .layerCount = 1}};
         barriers.push_back(barrier);
-    } else {
-        for (u32 i = 0; i < m_CurrentRenderPassDesc.colorAttachmentCount; i++) {
+    }
+    else
+    {
+        for (u32 i = 0; i < m_CurrentRenderPassDesc.colorAttachmentCount; i++)
+        {
             auto* texture = reinterpret_cast<VulkanTexture*>(m_CurrentRenderPassDesc.colorAttachments[i].texture);
-            if (!texture) continue;
+            if (!texture)
+                continue;
 
             vk::Image image = texture->GetImage();
 
-            vk::ImageMemoryBarrier barrier{
-                .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-                .dstAccessMask = vk::AccessFlagBits::eShaderRead,
-                .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal, // To read in ImGui
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = image,
-                .subresourceRange = {
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                }
-            };
+            vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+                                           .dstAccessMask = vk::AccessFlagBits::eShaderRead,
+                                           .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                                           .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal, // To read in ImGui
+                                           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                           .image = image,
+                                           .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                                .baseMipLevel = 0,
+                                                                .levelCount = 1,
+                                                                .baseArrayLayer = 0,
+                                                                .layerCount = 1}};
             barriers.push_back(barrier);
         }
 
-        if (m_CurrentRenderPassDesc.hasDepth && m_CurrentRenderPassDesc.depthAttachment.texture) {
+        if (m_CurrentRenderPassDesc.hasDepth && m_CurrentRenderPassDesc.depthAttachment.texture)
+        {
             auto* depthTex = reinterpret_cast<VulkanTexture*>(m_CurrentRenderPassDesc.depthAttachment.texture);
             vk::Image image = depthTex->GetImage();
 
@@ -291,22 +339,21 @@ void VulkanCommandBuffer::EndRenderPass()
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = image,
-                .subresourceRange = {
-                    .aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                }
-            };
+                .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
+                                     .baseMipLevel = 0,
+                                     .levelCount = 1,
+                                     .baseArrayLayer = 0,
+                                     .layerCount = 1}};
             barriers.push_back(barrier);
         }
     }
 
-    if (!barriers.empty()) {
-        m_CommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests,
-                                        vk::PipelineStageFlagBits::eBottomOfPipe | vk::PipelineStageFlagBits::eFragmentShader,
-                                        vk::DependencyFlags{}, nullptr, nullptr, barriers);
+    if (!barriers.empty())
+    {
+        m_CommandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests,
+            vk::PipelineStageFlagBits::eBottomOfPipe | vk::PipelineStageFlagBits::eFragmentShader,
+            vk::DependencyFlags{}, nullptr, nullptr, barriers);
     }
 }
 
@@ -350,23 +397,13 @@ void VulkanCommandBuffer::BindTexture(u32 slot, TextureHandle handle)
 
 void VulkanCommandBuffer::SetViewport(float x, float y, float width, float height)
 {
-    vk::Viewport viewPort{
-        .x = x,
-        .y = y,
-        .width = width,
-        .height = height,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f
-    };
+    vk::Viewport viewPort{.x = x, .y = y, .width = width, .height = height, .minDepth = 0.0f, .maxDepth = 1.0f};
     m_CommandBuffer.setViewport(0, viewPort);
 }
 
 void VulkanCommandBuffer::SetScissor(i32 x, i32 y, u32 width, u32 height)
 {
-    vk::Rect2D scissor{
-        .offset = vk::Offset2D{x, y},
-        .extent = vk::Extent2D{width, height}
-    };
+    vk::Rect2D scissor{.offset = vk::Offset2D{x, y}, .extent = vk::Extent2D{width, height}};
     m_CommandBuffer.setScissor(0, scissor);
 }
 
@@ -386,7 +423,9 @@ void VulkanCommandBuffer::PushConstants(ShaderStage stage, const void* data, u32
         else if (stage == ShaderStage::AllGraphics)
             flags = vk::ShaderStageFlagBits::eAllGraphics;
 
-        m_CommandBuffer.pushConstants<uint8_t>(m_CurrentPipelineLayout, static_cast<vk::ShaderStageFlags>(flags), offset, vk::ArrayProxy<const uint8_t>(size, static_cast<const uint8_t*>(data)));
+        m_CommandBuffer.pushConstants<uint8_t>(m_CurrentPipelineLayout, static_cast<vk::ShaderStageFlags>(flags),
+                                               offset,
+                                               vk::ArrayProxy<const uint8_t>(size, static_cast<const uint8_t*>(data)));
     }
 }
 
