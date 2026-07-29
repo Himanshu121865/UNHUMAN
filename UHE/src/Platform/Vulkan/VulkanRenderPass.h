@@ -5,7 +5,7 @@
 namespace UHE::RHI::VULKAN
 {
 
-class VulkanContext;
+struct VulkanContext;
 class VulkanRenderPass
 {
 public:
