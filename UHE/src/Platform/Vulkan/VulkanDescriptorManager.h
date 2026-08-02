@@ -14,16 +14,22 @@ public:
     void init(VulkanDevice& device);
     u32 RegisterBuffer(vk::raii::Device& device, vk::Buffer buffer, vk::DeviceSize size);
     u32 BindTexture(vk::raii::Device& device, vk::ImageView imageView, vk::Sampler sampler);
+    void UpdateDescriptorWithSameState(vk::raii::Device& device,vk::DescriptorSet DescriptorSet,const std::vector<vk::WriteDescriptorSet>& writeDescriptorSets);
+    void UpdateDescriptorWithNewState(vk::raii::Device& device, vk::DescriptorSet DescriptorSet, const std::vector<vk::WriteDescriptorSet>& writeDescriptorSets);
     void cleanup();
 
     [[nodiscard]] vk::DescriptorSetLayout GetLayoutHandle() const { return *m_DescriptorSetLayout; }
     [[nodiscard]] vk::DescriptorSet GetSetHandle() const { return *m_GlobalDescriptorSet; }
+    [[nodiscard]] u32 &GetNextBufferIndex()  { return m_NextBufferIndex; }
+    [[nodiscard]] u32 &GetNextTextureIndex()  { return m_NextTextureIndex; }
+    [[nodiscard]] const u32 &GetBufferIndex() const { return m_NextBufferIndex; }
+    [[nodiscard]] const u32 &GetTextureIndex() const { return m_NextTextureIndex; }
 
 private:
     vk::raii::DescriptorPool m_DescriptorPool = nullptr;
     vk::raii::DescriptorSetLayout m_DescriptorSetLayout = nullptr;
     vk::raii::DescriptorSet m_GlobalDescriptorSet = nullptr;
-
+    static constexpr uint32_t MAX_BINDLESS_RESOURCES = 10000;
     uint32_t m_NextBufferIndex = 0;
     uint32_t m_NextTextureIndex = 0;
 };

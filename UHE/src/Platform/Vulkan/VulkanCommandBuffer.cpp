@@ -1,6 +1,5 @@
 #include "uhepch.h"
 #include "VulkanCommandBuffer.h"
-#include <array>
 #include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanBuffer.h"
 #include "Platform/Vulkan/VulkanContext.h"
@@ -12,8 +11,6 @@
 #include "Platform/Vulkan/VulkanTexture.h"
 #include "UHE/RHI/RHITypes.h"
 #include "UHE/Renderer/Renderer.h"
-#include "UHE/Renderer/Shader.h"
-#include "UHE/Scene/Scene.h"
 #include "VulkanCommandPool.h"
 #include "vulkan/vulkan.hpp"
 
@@ -185,7 +182,7 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
         barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
+        barrier.image = image; barrier.oldLayout = vk::ImageLayout::eUndefined;
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -235,7 +232,7 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
         vk::RenderPassBeginInfo renderPassInfo{.renderPass =
                                                    m_ctx->graphicPipeline->GetRenderPassHandle().GetRenderPass(),
                                                .framebuffer = mFramebuffer.GetHandle(),
-                                               .renderArea = {vk::Offset2D{0, 0}, renderExtent},
+                                               .renderArea = {.offset= vk::Offset2D{.x = 0, .y = 0}, .extent = renderExtent},
                                                .clearValueCount = static_cast<u32>(clearValues.size()),
                                                .pClearValues = clearValues.data()};
 

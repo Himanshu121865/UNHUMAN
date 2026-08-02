@@ -3,7 +3,6 @@
 #include "Platform/Vulkan/VulkanContext.h"
 #include "UHE/RHI/RHITypes.h"
 #include "VulkanTypes.h"
-#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
