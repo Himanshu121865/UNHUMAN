@@ -10,6 +10,11 @@ public:
     ~VulkanDescriptorSet() = default;
     VulkanDescriptorSet(VulkanDescriptorSet&) = delete;
     VulkanDescriptorSet operator=(VulkanDescriptorSet&) = delete;
+    void CreateDescriptorSet(VulkanDescriptorManager* descriptorManager, VkDescriptorSetLayout layout);
+    void DestroyDescriptorSet();
+    void CreateUniformBufferDescriptorSet(VulkanDescriptorManager* descriptorManager, VkDescriptorSetLayout layout);
+    void CreateStorageBufferDescriptorSet(VulkanDescriptorManager* descriptorManager, VkDescriptorSetLayout layout);
+    
     void Bind();
 
 private:

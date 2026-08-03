@@ -10,7 +10,7 @@ void VulkanDescriptorManager::init(VulkanDevice& device)
 {
     const auto& logicaldevice = device.getLogicalDevClass().getLogicalDevice();
 
-    constexpr uint32_t MAX_BINDLESS_RESOURCES = 10000;
+    
 
     std::array<vk::DescriptorPoolSize, 2> poolSizes = {
         vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = MAX_BINDLESS_RESOURCES},

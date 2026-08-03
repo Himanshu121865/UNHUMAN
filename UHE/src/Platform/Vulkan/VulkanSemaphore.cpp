@@ -2,5 +2,5 @@
 
 namespace UHE::RHI::VULKAN
 {
-   
+   void VulkanSemaphore::Init() {};
 }
