@@ -9,8 +9,7 @@ namespace UHE::RHI::VULKAN
 void VulkanDescriptorManager::init(VulkanDevice& device)
 {
     const auto& logicaldevice = device.getLogicalDevClass().getLogicalDevice();
-
-    
+    mdevice = *logicaldevice;
 
     std::array<vk::DescriptorPoolSize, 2> poolSizes = {
         vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = MAX_BINDLESS_RESOURCES},
@@ -100,6 +99,18 @@ u32 VulkanDescriptorManager::BindTexture(vk::raii::Device& device, vk::ImageView
     device.updateDescriptorSets({descriptorWrite}, nullptr);
 
     return slot;
+}
+
+void UpdateDescriptorWithSameState(vk::raii::Device& device, vk::DescriptorSet DescriptorSet,
+                                   const std::vector<vk::WriteDescriptorSet>& writeDescriptorSets)
+{
+    device.updateDescriptorSets(writeDescriptorSets, nullptr);
+}
+
+void UpdateDescriptorWithNewState(vk::raii::Device& device, vk::DescriptorSet DescriptorSet,
+                                  const std::vector<vk::WriteDescriptorSet>& writeDescriptorSets)
+{
+    device.updateDescriptorSets(writeDescriptorSets, nullptr);
 }
 
 void VulkanDescriptorManager::cleanup()
