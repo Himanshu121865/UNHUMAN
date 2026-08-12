@@ -201,18 +201,32 @@ vk::DescriptorType ToVkDescriptorType(BufferUsageFlags usage)
             return vk::DescriptorType::eAccelerationStructureKHR;
         case BufferUsageFlags::AccelerationStructureNV:
             return vk::DescriptorType::eAccelerationStructureNV;
+#ifdef VK_QCOM_IMAGE_PROCESSING_EXTENSION_NAME
         case BufferUsageFlags::SampleWeightImageQCOM:
             return vk::DescriptorType::eSampleWeightImageQCOM;
         case BufferUsageFlags::BlockMatchImageQCOM:
             return vk::DescriptorType::eBlockMatchImageQCOM;
+#endif
+#if defined(VK_ENABLE_BETA_EXTENSIONS) || defined(VK_ARM_TENSOR_CORE_EXTENSION_NAME)
+// In some Vulkan SDKs, eTensorARM is only available if beta extensions are enabled, or in later versions.
+// Using a #if defined to avoid compilation error.
+#if VK_HEADER_VERSION >= 269
         case BufferUsageFlags::TensorARM:
             return vk::DescriptorType::eTensorARM;
+#endif
+#endif
+#ifdef VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
         case BufferUsageFlags::MutableEXT:
             return vk::DescriptorType::eMutableEXT;
+#endif
+#ifdef VK_VALVE_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
         case BufferUsageFlags::MutableVALVE:
             return vk::DescriptorType::eMutableVALVE;
+#endif
+#ifdef VK_NV_PARTITIONED_ACCELERATION_STRUCTURE_EXTENSION_NAME
         case BufferUsageFlags::PartitionedAccelerationStructureNV:
             return vk::DescriptorType::ePartitionedAccelerationStructureNV;
+#endif
         default:
             UHE_CORE_ASSERT(false, "Invalid BufferUsageFlags!");
             return vk::DescriptorType::eUniformBuffer;
