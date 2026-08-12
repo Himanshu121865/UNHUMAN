@@ -12,5 +12,6 @@ vk::SampleCountFlagBits ToVkSample(u32 sampleCount);
 vk::AttachmentStoreOp ToVkStoreOp(StoreOp storeOp);
 vk::AttachmentLoadOp ToVkLoadOp(LoadOp loadOp);
 vk::ImageLayout ToVkImageLayout(TextureUsage usage);
+vk::DescriptorType ToVkDescriptorType(BufferUsageFlags usage);
 
 } // namespace UHE::RHI::VULKAN

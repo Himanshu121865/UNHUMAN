@@ -3,17 +3,18 @@
 #include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanDescriptorManager.h"
+#include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "Platform/Vulkan/VulkanFrameContext.h"
 #include "Platform/Vulkan/VulkanInstance.h"
 #include "Platform/Vulkan/VulkanLogicalDevice.h"
 #include "Platform/Vulkan/VulkanPhysicalDevice.h"
 #include "Platform/Vulkan/VulkanSwapChain.h"
-#include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "UHE/RHI/RHIDevice.h"
 
 namespace UHE::RHI::VULKAN
 {
 
+class VulkanBuffer;
 class VulkanDevice final : public RHIDevice
 {
 public:
@@ -40,6 +41,7 @@ public:
     void DestroyTexture(TextureHandle handle) override;
     void DestroyShader(ShaderHandle handle) override;
     void DestroyGraphicsPipeline(PipelineHandle handle) override;
+    u32 RegisterBuffer(VulkanBuffer* buffer);
 
     // ─── Command Buffer Access ──────────────────────────────────
     RHICommandBuffer& GetCurrentCommandBuffer() override;
@@ -59,6 +61,7 @@ public:
     [[nodiscard]] inline VulkanSwapChain& getSwapChainClass() { return m_SwapChain; }
     [[nodiscard]] inline const u32& ImageIndex() { return m_ImageIndex; }
     [[nodiscard]] inline VulkanDescriptorManager* GetDescriptorManager() { return &m_DescriptorManager; }
+    [[nodiscard]] inline VulkanContext& GetVulkanContext() { return m_Context; }
     void ImmediateSubmit(std::function<void(vk::raii::CommandBuffer& cmd)>&& function);
 
 private:

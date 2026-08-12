@@ -85,7 +85,8 @@ std::vector<const char*> VulkanExtensionCheck::GetEnabledDeviceExtensions() cons
         extensions.emplace_back("VK_KHR_video_encode_av1");
     if (m_extensionCheck.HasVkdecode_av1 || m_extensionCheck.HasVkdecode_h265 || m_extensionCheck.HasVkdecode_h264)
         extensions.emplace_back("VK_KHR_video_decode_queue");
-    if (m_extensionCheck.HasVkencode_h265 || m_extensionCheck.HasVkencode_h264 || m_extensionCheck.HasVkencode_av1 || m_extensionCheck.HasVkVideoEncodeAV1)
+    if (m_extensionCheck.HasVkencode_h265 || m_extensionCheck.HasVkencode_h264 || m_extensionCheck.HasVkencode_av1 ||
+        m_extensionCheck.HasVkVideoEncodeAV1)
         extensions.emplace_back("VK_KHR_video_encode_queue");
 
     if (m_extensionCheck.HasVkVideoEncodeFeedback2)

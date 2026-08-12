@@ -12,7 +12,6 @@
 #include "UHE/RHI/RHITypes.h"
 #include "UHE/Renderer/Renderer.h"
 #include "VulkanCommandPool.h"
-#include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
@@ -112,7 +111,7 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
     }
     else
     {
-        renderExtent = vk::Extent2D{desc.renderWidth, desc.renderHeight};
+        renderExtent = vk::Extent2D{.width = desc.renderWidth, .height = desc.renderHeight};
 
         for (u32 i = 0; i < desc.colorAttachmentCount; i++)
         {
@@ -167,22 +166,23 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
         auto* depthTex = reinterpret_cast<VulkanTexture*>(desc.depthAttachment.texture);
         vk::Image image = depthTex->GetImage();
 
-        depthAttachmentInfo =
-            vk::RenderingAttachmentInfo{.imageView = *depthTex->GetImageView(),
-                                        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                                        .resolveMode = {},
-                                        .resolveImageView = {},
-                                        .resolveImageLayout = {},
-                                        .loadOp = vk::AttachmentLoadOp::eClear,
-                                        .storeOp = vk::AttachmentStoreOp::eStore,
-                                        .clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f, 0}}};
+        depthAttachmentInfo = vk::RenderingAttachmentInfo{
+            .imageView = *depthTex->GetImageView(),
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .resolveMode = {},
+            .resolveImageView = {},
+            .resolveImageLayout = {},
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue = vk::ClearValue{vk::ClearDepthStencilValue{.depth = 1.0f, .stencil = 0}}};
 
         vk::ImageMemoryBarrier barrier{};
         barrier.oldLayout = vk::ImageLayout::eUndefined;
         barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image; barrier.oldLayout = vk::ImageLayout::eUndefined;
+        barrier.image = image;
+        barrier.oldLayout = vk::ImageLayout::eUndefined;
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -229,12 +229,12 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
         VulkanFramebuffer mFramebuffer;
         mFramebuffer.Init(fbDesc);
 
-        vk::RenderPassBeginInfo renderPassInfo{.renderPass =
-                                                   m_ctx->graphicPipeline->GetRenderPassHandle().GetRenderPass(),
-                                               .framebuffer = mFramebuffer.GetHandle(),
-                                               .renderArea = {.offset= vk::Offset2D{.x = 0, .y = 0}, .extent = renderExtent},
-                                               .clearValueCount = static_cast<u32>(clearValues.size()),
-                                               .pClearValues = clearValues.data()};
+        vk::RenderPassBeginInfo renderPassInfo{
+            .renderPass = m_ctx->graphicPipeline->GetRenderPassHandle().GetRenderPass(),
+            .framebuffer = mFramebuffer.GetHandle(),
+            .renderArea = {.offset = vk::Offset2D{.x = 0, .y = 0}, .extent = renderExtent},
+            .clearValueCount = static_cast<u32>(clearValues.size()),
+            .pClearValues = clearValues.data()};
 
         m_CommandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
         return;
@@ -249,7 +249,7 @@ void VulkanCommandBuffer::BeginRenderPass(const RenderPassDesc& desc)
     }
 
     vk::RenderingInfo renderingInfo{.flags = {},
-                                    .renderArea = {vk::Offset2D{0, 0}, renderExtent},
+                                    .renderArea = {.offset = vk::Offset2D{.x = 0, .y = 0}, .extent = renderExtent},
                                     .layerCount = 1,
                                     .viewMask = 0,
                                     .colorAttachmentCount = static_cast<u32>(colorAttachments.size()),
@@ -358,7 +358,7 @@ void VulkanCommandBuffer::EndRenderPass()
 
 void VulkanCommandBuffer::BindPipeline(PipelineHandle handle)
 {
-    VulkanGraphicPipeline* pipeline = reinterpret_cast<VulkanGraphicPipeline*>(handle);
+    auto* pipeline = reinterpret_cast<VulkanGraphicPipeline*>(handle);
 
     m_CurrentPipelineLayout = pipeline->GetPipelineLayout();
     m_CommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->GetPipeline());
@@ -400,7 +400,8 @@ void VulkanCommandBuffer::SetViewport(float x, float y, float width, float heigh
 
 void VulkanCommandBuffer::SetScissor(i32 x, i32 y, u32 width, u32 height)
 {
-    vk::Rect2D scissor{.offset = vk::Offset2D{x, y}, .extent = vk::Extent2D{width, height}};
+    vk::Rect2D scissor{.offset = vk::Offset2D{.x = x, .y = y},
+                       .extent = vk::Extent2D{.width = width, .height = height}};
     m_CommandBuffer.setScissor(0, scissor);
 }
 

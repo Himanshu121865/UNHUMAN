@@ -1,111 +1,219 @@
 #include "uhepch.h"
-#include "VulkanDescriptorManager.h"
+#include "VulkanDescriptorPool.h"
+#include "VulkanDescriptorSet.h"
 #include "VulkanDevice.h"
 #include "vulkan/vulkan.hpp"
 
 namespace UHE::RHI::VULKAN
 {
 
+DescriptorBuilder& DescriptorBuilder::BindBuffer(u32 binding, vk::DescriptorBufferInfo* bufferInfo,
+                                                 vk::DescriptorType type, vk::ShaderStageFlags stageFlags)
+{
+    m_BufferInfos.push_back(*bufferInfo);
+    vk::WriteDescriptorSet newWrite{.dstSet = nullptr,
+                                    .dstBinding = binding,
+                                    .dstArrayElement = 0,
+                                    .descriptorCount = 1,
+                                    .descriptorType = type,
+                                    .pImageInfo = nullptr,
+                                    .pBufferInfo = &m_BufferInfos.back(),
+                                    .pTexelBufferView = nullptr};
+    m_Writes.push_back(newWrite);
+    return *this;
+}
+
+DescriptorBuilder& DescriptorBuilder::BindImage(u32 binding, vk::DescriptorImageInfo* imageInfo,
+                                                vk::DescriptorType type, vk::ShaderStageFlags stageFlags)
+{
+    m_ImageInfos.push_back(*imageInfo);
+    vk::WriteDescriptorSet newWrite{.dstSet = nullptr,
+                                    .dstBinding = binding,
+                                    .dstArrayElement = 0,
+                                    .descriptorCount = 1,
+                                    .descriptorType = type,
+                                    .pImageInfo = &m_ImageInfos.back(),
+                                    .pBufferInfo = nullptr,
+                                    .pTexelBufferView = nullptr};
+    m_Writes.push_back(newWrite);
+    return *this;
+}
+
+DescriptorBuilder& DescriptorBuilder::BindBufferArray(u32 binding, u32 arrayElement,
+                                                      vk::DescriptorBufferInfo* bufferInfo, vk::DescriptorType type)
+{
+    m_BufferInfos.push_back(*bufferInfo);
+    vk::WriteDescriptorSet newWrite{.dstSet = nullptr,
+                                    .dstBinding = binding,
+                                    .dstArrayElement = arrayElement,
+                                    .descriptorCount = 1,
+                                    .descriptorType = type,
+                                    .pImageInfo = nullptr,
+                                    .pBufferInfo = &m_BufferInfos.back(),
+                                    .pTexelBufferView = nullptr};
+    m_Writes.push_back(newWrite);
+    return *this;
+}
+
+DescriptorBuilder& DescriptorBuilder::BindImageArray(u32 binding, u32 arrayElement, vk::DescriptorImageInfo* imageInfo,
+                                                     vk::DescriptorType type)
+{
+    m_ImageInfos.push_back(*imageInfo);
+    vk::WriteDescriptorSet newWrite{.dstSet = nullptr,
+                                    .dstBinding = binding,
+                                    .dstArrayElement = arrayElement,
+                                    .descriptorCount = 1,
+                                    .descriptorType = type,
+                                    .pImageInfo = &m_ImageInfos.back(),
+                                    .pBufferInfo = nullptr,
+                                    .pTexelBufferView = nullptr};
+    m_Writes.push_back(newWrite);
+    return *this;
+}
+
+void DescriptorBuilder::Build(vk::raii::Device& device, vk::DescriptorSet set)
+{
+    for (auto& write : m_Writes)
+    {
+        write.dstSet = set;
+    }
+    device.updateDescriptorSets(m_Writes, nullptr);
+    m_Writes.clear();
+    m_BufferInfos.clear();
+    m_ImageInfos.clear();
+}
+
 void VulkanDescriptorManager::init(VulkanDevice& device)
 {
     const auto& logicaldevice = device.getLogicalDevClass().getLogicalDevice();
+    mdevice = *logicaldevice;
+    m_IsBindless = device.GetVulkanContext().CheckExtensions->GetVulkanExtensionFlags().HasVkBindlessDescriptor;
 
-    
+    if (m_IsBindless)
+    {
+        m_FallbackDescriptorPool.Init(&device.GetVulkanContext());
+        m_FallbackDescriptorPool.CreateBindlessDescriptorPool(MAX_BINDLESS_RESOURCES);
 
-    std::array<vk::DescriptorPoolSize, 2> poolSizes = {
-        vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = MAX_BINDLESS_RESOURCES},
-        vk::DescriptorPoolSize{.type = vk::DescriptorType::eCombinedImageSampler,
-                               .descriptorCount = MAX_BINDLESS_RESOURCES}};
+        vk::DescriptorBindingFlags flags =
+            vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound;
+        m_GlobalDescriptorSet.AddBinding(
+            0, vk::DescriptorType::eStorageBuffer,
+            vk::ShaderStageFlags(vk::ShaderStageFlagBits::eAllGraphics | vk::ShaderStageFlagBits::eCompute),
+            MAX_BINDLESS_RESOURCES, flags);
+        m_GlobalDescriptorSet.AddBinding(1, vk::DescriptorType::eCombinedImageSampler,
+                                         vk::ShaderStageFlags(vk::ShaderStageFlagBits::eAllGraphics),
+                                         MAX_BINDLESS_RESOURCES, flags);
 
-    vk::DescriptorPoolCreateInfo poolInfo{
-        .flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind |
-                 vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, // alllow updating descriptors after they've been
-                                                                       // bound
-        .maxSets = 2,
-        // poolInfo.maxSets = MAX_BINDLESS_RESOURCES * 2;          // max number of descriptor sets
-        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-        .pPoolSizes = poolSizes.data()};
-
-    m_DescriptorPool = vk::raii::DescriptorPool(logicaldevice, poolInfo);
-
-    // create a descriptor set layout with update after-bind flags
-    vk::DescriptorSetLayoutBinding storageBufferBinding{.binding = 0,
-                                                        .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                                        .descriptorCount = MAX_BINDLESS_RESOURCES,
-                                                        .stageFlags = vk::ShaderStageFlagBits::eAllGraphics |
-                                                                      vk::ShaderStageFlagBits::eCompute,
-                                                        .pImmutableSamplers = nullptr};
-
-    vk::DescriptorSetLayoutBinding textureBinding{.binding = 1,
-                                                  .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                                                  .descriptorCount = MAX_BINDLESS_RESOURCES,
-                                                  .stageFlags = vk::ShaderStageFlagBits::eAllGraphics,
-                                                  .pImmutableSamplers = nullptr};
-
-    std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {storageBufferBinding, textureBinding};
-
-    std::array<vk::DescriptorBindingFlags, 2> bindingFlags = {
-        vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound,
-        vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound};
-
-    vk::DescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{
-        .bindingCount = static_cast<uint32_t>(bindingFlags.size()), .pBindingFlags = bindingFlags.data()};
-
-    vk::DescriptorSetLayoutCreateInfo layoutInfo{.pNext = &extendedInfo,
-                                                 .flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
-                                                 .bindingCount = static_cast<uint32_t>(bindings.size()),
-                                                 .pBindings = bindings.data()};
-    m_DescriptorSetLayout = vk::raii::DescriptorSetLayout(logicaldevice, layoutInfo);
-
-    vk::DescriptorSetAllocateInfo allocInfo{
-        .descriptorPool = *m_DescriptorPool, .descriptorSetCount = 1, .pSetLayouts = &(*m_DescriptorSetLayout)};
-
-    vk::raii::DescriptorSets sets(logicaldevice, allocInfo);
-    m_GlobalDescriptorSet = std::move(sets.front());
+        m_GlobalDescriptorSet.BuildLayout(mdevice);
+        m_GlobalDescriptorSet.AllocateSet(mdevice, &m_FallbackDescriptorPool);
+    }
+    else
+    {
+        m_FallbackDescriptorPool.Init(&device.GetVulkanContext());
+        m_FallbackDescriptorPool.CreateDescriptorPool();
+    }
 }
 
 u32 VulkanDescriptorManager::RegisterBuffer(vk::raii::Device& device, vk::Buffer buffer, vk::DeviceSize size)
 {
-    u32 bindingIndex = m_NextBufferIndex++;
+    if (!m_IsBindless)
+        return -1; // Or handle standard non-bindless registration if applicable
+
+    u32 bindingIndex = 0;
+    if (!m_FreeBufferIndices.empty())
+    {
+        bindingIndex = m_FreeBufferIndices.back();
+        m_FreeBufferIndices.pop_back();
+    }
+    else
+    {
+        if (m_NextBufferIndex >= MAX_BINDLESS_RESOURCES)
+        {
+            return static_cast<u32>(-1);
+        }
+        bindingIndex = m_NextBufferIndex++;
+    }
 
     vk::DescriptorBufferInfo bufferInfo{.buffer = buffer, .offset = 0, .range = size};
-    vk::WriteDescriptorSet descriptorWrite{.dstSet = *m_GlobalDescriptorSet,
-                                           .dstBinding = 0,                 // binding for storage buffers
-                                           .dstArrayElement = bindingIndex, // next available array element
-                                           .descriptorCount = 1,
-                                           .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                           .pImageInfo = nullptr,
-                                           .pBufferInfo = &bufferInfo,
-                                           .pTexelBufferView = nullptr};
 
-    std::array<vk::WriteDescriptorSet, 1> writes = {descriptorWrite};
-    device.updateDescriptorSets({descriptorWrite}, nullptr);
+    DescriptorBuilder builder;
+    builder.BindBufferArray(0, bindingIndex, &bufferInfo, vk::DescriptorType::eStorageBuffer)
+        .Build(device, m_GlobalDescriptorSet.GetSet());
+
     return bindingIndex;
+}
+
+void VulkanDescriptorManager::UnregisterBuffer(u32 slot)
+{
+    if (slot != static_cast<u32>(-1))
+    {
+        m_FreeBufferIndices.push_back(slot);
+    }
 }
 u32 VulkanDescriptorManager::BindTexture(vk::raii::Device& device, vk::ImageView imageView, vk::Sampler sampler)
 {
-    u32 slot = m_NextTextureIndex++;
+    if (!m_IsBindless)
+        return -1;
+
+    u32 slot = 0;
+    if (!m_FreeTextureIndices.empty())
+    {
+        slot = m_FreeTextureIndices.back();
+        m_FreeTextureIndices.pop_back();
+    }
+    else
+    {
+        if (m_NextTextureIndex >= MAX_BINDLESS_RESOURCES)
+        {
+            return static_cast<u32>(-1);
+        }
+        slot = m_NextTextureIndex++;
+    }
 
     vk::DescriptorImageInfo imageInfo{
         .sampler = sampler, .imageView = imageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
 
-    vk::WriteDescriptorSet descriptorWrite{.dstSet = *m_GlobalDescriptorSet,
-                                           .dstBinding = 1,
-                                           .dstArrayElement = slot,
-                                           .descriptorCount = 1,
-                                           .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                                           .pImageInfo = &imageInfo,
-                                           .pBufferInfo = nullptr,
-                                           .pTexelBufferView = nullptr};
-    device.updateDescriptorSets({descriptorWrite}, nullptr);
+    DescriptorBuilder builder;
+    builder.BindImageArray(1, slot, &imageInfo, vk::DescriptorType::eCombinedImageSampler)
+        .Build(device, m_GlobalDescriptorSet.GetSet());
 
     return slot;
 }
 
+void VulkanDescriptorManager::UnbindTexture(u32 slot)
+{
+    if (slot != static_cast<u32>(-1))
+    {
+        m_FreeTextureIndices.push_back(slot);
+    }
+}
+
+void VulkanDescriptorManager::UpdateDescriptorWithSameState(vk::raii::Device& device, vk::DescriptorSet DescriptorSet,
+                                                            DescriptorBuilder& builder)
+{
+    builder.Build(device, DescriptorSet);
+}
+
+void VulkanDescriptorManager::UpdateDescriptorWithNewState(vk::raii::Device& device, vk::DescriptorSet DescriptorSet,
+                                                           DescriptorBuilder& builder)
+{
+    builder.Build(device, DescriptorSet);
+}
+
 void VulkanDescriptorManager::cleanup()
 {
-    m_GlobalDescriptorSet = nullptr;
-    m_DescriptorSetLayout = nullptr;
-    m_DescriptorPool = nullptr;
+    if (m_IsBindless)
+    {
+        m_GlobalDescriptorSet.DestroyDescriptorSet(mdevice);
+        m_FallbackDescriptorPool.DestroyDescriptorPool();
+        m_FreeBufferIndices.clear();
+        m_FreeTextureIndices.clear();
+        m_NextBufferIndex = 0;
+        m_NextTextureIndex = 0;
+    }
+    else
+    {
+        m_FallbackDescriptorPool.DestroyDescriptorPool();
+    }
 }
 } // namespace UHE::RHI::VULKAN

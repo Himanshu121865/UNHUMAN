@@ -37,6 +37,40 @@ enum class BufferUsage : u8
     Staging
 };
 
+enum class BufferUsageFlags : u32
+{
+    None = 0,
+    Sampler = 1 << 0,
+    CombinedImageSampler = 1 << 1,
+    SampledImage = 1 << 2,
+    StorageImage = 1 << 3,
+    UniformTexelBuffer = 1 << 4,
+    StorageTexelBuffer = 1 << 5,
+    UniformBuffer = 1 << 6,
+    StorageBuffer = 1 << 7,
+    UniformBufferDynamic = 1 << 8,
+    StorageBufferDynamic = 1 << 9,
+    InputAttachment = 1 << 10,
+    InlineUniformBlock = 1 << 11,
+    InlineUniformBlockEXT = 1 << 12,
+    AccelerationStructureKHR = 1 << 13,
+    AccelerationStructureNV = 1 << 14,
+    SampleWeightImageQCOM = 1 << 15,
+    BlockMatchImageQCOM = 1 << 16,
+    TensorARM = 1 << 17,
+    MutableEXT = 1 << 18,
+    MutableVALVE = 1 << 19,
+    PartitionedAccelerationStructureNV = 1 << 20
+};
+inline BufferUsageFlags operator|(BufferUsageFlags a, BufferUsageFlags b)
+{
+    return static_cast<BufferUsageFlags>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+inline bool operator&(BufferUsageFlags a, BufferUsageFlags b)
+{
+    return (static_cast<u32>(a) & static_cast<u32>(b)) != 0;
+}
+
 enum class TextureFormat : u8
 {
     Undefined = 0,
