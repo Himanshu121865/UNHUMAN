@@ -21,8 +21,12 @@ public:
 
     vk::Buffer GetHandle() const { return m_Buffer; }
     vk::DeviceSize GetSize() const { return m_Size; }
+    
+    u32 GetBindlessIndex() const { return m_BindlessIndex; }
+    void SetBindlessIndex(u32 index) { m_BindlessIndex = index; }
 
 private:
+    u32 m_BindlessIndex = -1;
     VmaAllocator m_Allocator = nullptr;
     vk::Buffer m_Buffer = nullptr;
     VmaAllocation m_Allocation = nullptr;

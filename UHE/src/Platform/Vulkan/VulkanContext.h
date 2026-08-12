@@ -14,6 +14,7 @@ class VulkanDevice;
 class VulkanDescriptorManager;
 class VulkanExtensionCheck;
 class VulkanGraphicPipeline;
+class VulkanDescriptorPool;
 
 struct VulkanContext
 {
@@ -25,6 +26,7 @@ struct VulkanContext
     VulkanDevice* device = nullptr;
     VulkanDescriptorManager* descriptorManager = nullptr;
     VulkanGraphicPipeline* graphicPipeline;
+    VulkanDescriptorPool* fallbackDescriptorPool = nullptr;
 
     VmaAllocator allocator = nullptr;
     vk::raii::Device* logicalDeviceHandle = nullptr;

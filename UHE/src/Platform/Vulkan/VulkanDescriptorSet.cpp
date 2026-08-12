@@ -1,49 +1,112 @@
 #include "uhepch.h"
 #include "VulkanDescriptorSet.h"
 #include <vulkan/vulkan_raii.hpp>
-#include "Platform/Vulkan/VulkanDescriptorManager.h"
-#include "UHE/RHI/RHITypes.h"
+#include "VulkanDescriptorPool.h"
 #include "VulkanTypes.h"
 
 namespace UHE::RHI::VULKAN
 {
 
-void VulkanDescriptorSet::Init(const VulkanDescriptorManager* Manager)
+void VulkanDescriptorSet::AddBinding(u32 binding, const UHE::RHI::BufferUsageFlags usage, vk::ShaderStageFlags flags,
+                                     u32 descriptorCount)
 {
-    MAX_BINDLESS_RESOURCES = Manager->GetMaxBindlessResourceCount();
-    m_BufferBinding.reserve(MAX_BINDLESS_RESOURCES);
-    
+    vk::DescriptorSetLayoutBinding newBinding{.binding = binding,
+                                              .descriptorType = ToVkDescriptorType(usage),
+                                              .descriptorCount = descriptorCount,
+                                              .stageFlags = flags,
+                                              .pImmutableSamplers = nullptr};
+    m_BufferBinding.push_back(newBinding);
+    m_BindingFlags.push_back({});
 }
 
-void VulkanDescriptorSet::Bind() {};
-
-void VulkanDescriptorSet::CreateDescriptorSet(const VulkanDescriptorManager* descriptorManager,
-                                              VkDescriptorSetLayout layout)
+void VulkanDescriptorSet::AddBinding(u32 binding, vk::DescriptorType type, vk::ShaderStageFlags flags,
+                                     u32 descriptorCount, vk::DescriptorBindingFlags bindingFlags)
 {
-    // Implementation for creating a descriptor set using the provided descriptor manager and layout
+    vk::DescriptorSetLayoutBinding newBinding{.binding = binding,
+                                              .descriptorType = type,
+                                              .descriptorCount = descriptorCount,
+                                              .stageFlags = flags,
+                                              .pImmutableSamplers = nullptr};
+    m_BufferBinding.push_back(newBinding);
+    m_BindingFlags.push_back(bindingFlags);
+}
+
+void VulkanDescriptorSet::BuildLayout(vk::Device device)
+{
+    bool hasFlags = false;
+    for (auto flag : m_BindingFlags)
+    {
+        if (flag)
+            hasFlags = true;
+    }
+
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{
+        .bindingCount = static_cast<uint32_t>(m_BindingFlags.size()), .pBindingFlags = m_BindingFlags.data()};
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{.bindingCount = static_cast<uint32_t>(m_BufferBinding.size()),
+                                                 .pBindings = m_BufferBinding.data()};
+
+    if (hasFlags)
+    {
+        layoutInfo.pNext = &extendedInfo;
+        layoutInfo.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+    }
+
+    m_DescriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
+}
+
+void VulkanDescriptorSet::AllocateSet(vk::Device device, VulkanDescriptorPool* pool)
+{
     vk::DescriptorSetAllocateInfo allocInfo{
-        .descriptorPool = *descriptorManager->GetDescriptorPool(), .descriptorSetCount = 1, .pSetLayouts = &layout};
-    m_DescriptorSet = descriptorManager->GetDevice().allocateDescriptorSets(allocInfo)[0];
-    m_DescriptorSetLayout = layout;
-};
-
-void VulkanDescriptorSet::CreateBufferAnyTypeDescriptorSet(const VulkanDescriptorManager* descriptorManager,
-                                                           const VkDescriptorSetLayout layout,
-                                                           const UHE::RHI::BufferUsageFlags usage,
-                                                           vk::ShaderStageFlagBits flags, const u32 mdescriptorCount)
-{
-    vk::DescriptorSetLayoutBinding eBufferBinding{.binding = 0,
-                                                  .descriptorType = ToVkDescriptorType(usage),
-                                                  .descriptorCount = mdescriptorCount,
-                                                  .stageFlags = flags,
-                                                  .pImmutableSamplers = nullptr};
-
-    m_BufferBinding.emplace_back(eBufferBinding);
+        .descriptorPool = *pool->GetDescriptorPool(), .descriptorSetCount = 1, .pSetLayouts = &m_DescriptorSetLayout};
+    m_DescriptorSet = device.allocateDescriptorSets(allocInfo)[0];
 }
 
-void VulkanDescriptorSet::DestroyDescriptorSet(const VulkanDescriptorManager* descriptorManager) {
-    descriptorManager->GetDevice().freeDescriptorSets(*descriptorManager->GetDescriptorPool(), m_DescriptorSet);
-    m_DescriptorSet = nullptr;
+void VulkanDescriptorSet::WriteBuffer(vk::Device device, u32 binding, vk::Buffer buffer, vk::DeviceSize size,
+                                      vk::DeviceSize offset)
+{
+    vk::DescriptorBufferInfo bufferInfo{.buffer = buffer, .offset = offset, .range = size};
+
+    vk::WriteDescriptorSet descriptorWrite{.dstSet = m_DescriptorSet,
+                                           .dstBinding = binding,
+                                           .dstArrayElement = 0,
+                                           .descriptorCount = 1,
+                                           // We find the descriptor type from the binding layout
+                                           .descriptorType = m_BufferBinding[binding].descriptorType,
+                                           .pImageInfo = nullptr,
+                                           .pBufferInfo = &bufferInfo,
+                                           .pTexelBufferView = nullptr};
+
+    device.updateDescriptorSets({descriptorWrite}, nullptr);
+}
+
+void VulkanDescriptorSet::WriteImage(vk::Device device, u32 binding, vk::ImageView imageView, vk::Sampler sampler,
+                                     vk::ImageLayout layout)
+{
+    vk::DescriptorImageInfo imageInfo{.sampler = sampler, .imageView = imageView, .imageLayout = layout};
+
+    vk::WriteDescriptorSet descriptorWrite{.dstSet = m_DescriptorSet,
+                                           .dstBinding = binding,
+                                           .dstArrayElement = 0,
+                                           .descriptorCount = 1,
+                                           .descriptorType = m_BufferBinding[binding].descriptorType,
+                                           .pImageInfo = &imageInfo,
+                                           .pBufferInfo = nullptr,
+                                           .pTexelBufferView = nullptr};
+
+    device.updateDescriptorSets({descriptorWrite}, nullptr);
+}
+
+void VulkanDescriptorSet::Bind() {}
+
+void VulkanDescriptorSet::DestroyDescriptorSet(vk::Device device)
+{
+    if (m_DescriptorSetLayout)
+    {
+        device.destroyDescriptorSetLayout(m_DescriptorSetLayout);
+        m_DescriptorSetLayout = nullptr;
+    }
+    // We don't free the descriptor set individually because the pool will free it
 }
 
 } // namespace UHE::RHI::VULKAN

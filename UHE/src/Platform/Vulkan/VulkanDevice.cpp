@@ -18,6 +18,7 @@
 #include "Platform/Vulkan/VulkanUtils.h"
 #include "UHE/Core/Log.h"
 #include "UHE/RHI/RHITypes.h"
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
 namespace UHE::RHI::VULKAN
 {
@@ -68,13 +69,6 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     vk::FenceCreateInfo fenceInfo{.flags = {}};
     m_UploadFence = vk::raii::Fence(m_LogicalDevice.getLogicalDevice(), fenceInfo);
 
-    m_DescriptorManager.init(*this);
-
-    for (auto& frame : m_Frames)
-    {
-        frame.GetCommandBuffer().SetContext(&m_LogicalDevice.getLogicalDevice(), &m_DescriptorManager, &m_Context);
-    }
-
     m_Context.instance = &m_Instance;
     m_Context.physicalDevice = &m_PhysicalDevice;
     m_Context.logicalDevice = &m_LogicalDevice;
@@ -83,6 +77,7 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     m_Context.device = this;
     m_Context.graphicPipeline = m_CurrentPipeline;
     m_Context.descriptorManager = &m_DescriptorManager;
+    m_Context.fallbackDescriptorPool = m_DescriptorManager.GetFallbackPool();
     m_Context.allocator = m_Allocator;
     m_Context.logicalDeviceHandle = &m_LogicalDevice.getLogicalDevice();
     m_Context.physicalDeviceHandle = &m_PhysicalDevice.getPhysicalDevice();
@@ -91,6 +86,13 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     m_Context.surface = &m_LogicalDevice.getSurface();
     m_Context.graphicsQueueFamilyIndex = m_LogicalDevice.getGraphicsQueueFamilyIndex();
     g_VulkanContext = &m_Context;
+
+    m_DescriptorManager.init(*this);
+
+    for (auto& frame : m_Frames)
+    {
+        frame.GetCommandBuffer().SetContext(&m_LogicalDevice.getLogicalDevice(), &m_DescriptorManager, &m_Context);
+    }
 
     UHE_CORE_INFO("Vulkan device initialized successfully");
 }
@@ -174,13 +176,22 @@ BufferHandle VulkanDevice::CreateBuffer(const BufferDesc& desc)
     return reinterpret_cast<BufferHandle>(buffer);
 }
 
+u32 VulkanDevice::RegisterBuffer(VulkanBuffer* buffer)
+{
+    if (!m_ExtensionCheck.GetVulkanExtensionFlags().HasVkBindlessDescriptor)
+        return 0;
+
+    u32 index = m_DescriptorManager.RegisterBuffer(m_LogicalDevice.getLogicalDevice(), buffer->GetHandle(),
+                                              buffer->GetSize());
+    buffer->SetBindlessIndex(index);
+    return index;
+}
+
 u32 VulkanDevice::GetBufferBindlessIndex(BufferHandle handle)
 {
-    if (!handle)
-        return 0;
-    auto* buffer = reinterpret_cast<VulkanBuffer*>(handle);
-    return m_DescriptorManager.RegisterBuffer(m_LogicalDevice.getLogicalDevice(), buffer->GetHandle(),
-                                              buffer->GetSize());
+    // The handle points to a VulkanBuffer instance. We return its stored bindless index.
+    VulkanBuffer* buffer = reinterpret_cast<VulkanBuffer*>(handle);
+    return buffer->GetBindlessIndex(); 
 }
 
 TextureHandle VulkanDevice::CreateTexture(const TextureDesc& desc)
