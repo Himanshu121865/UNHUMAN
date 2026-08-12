@@ -179,19 +179,25 @@ BufferHandle VulkanDevice::CreateBuffer(const BufferDesc& desc)
 u32 VulkanDevice::RegisterBuffer(VulkanBuffer* buffer)
 {
     if (!m_ExtensionCheck.GetVulkanExtensionFlags().HasVkBindlessDescriptor)
-        return 0;
+    {
+        buffer->SetBindlessIndex(static_cast<u32>(-1));
+        return static_cast<u32>(-1);
+    }
 
-    u32 index = m_DescriptorManager.RegisterBuffer(m_LogicalDevice.getLogicalDevice(), buffer->GetHandle(),
-                                              buffer->GetSize());
+    u32 index =
+        m_DescriptorManager.RegisterBuffer(m_LogicalDevice.getLogicalDevice(), buffer->GetHandle(), buffer->GetSize());
     buffer->SetBindlessIndex(index);
     return index;
 }
 
 u32 VulkanDevice::GetBufferBindlessIndex(BufferHandle handle)
 {
-    // The handle points to a VulkanBuffer instance. We return its stored bindless index.
-    VulkanBuffer* buffer = reinterpret_cast<VulkanBuffer*>(handle);
-    return buffer->GetBindlessIndex(); 
+    if (!handle)
+        return static_cast<u32>(-1);
+
+    // the handle points to a VulkanBuffer instance. We return its stored bindless index.
+    auto* buffer = reinterpret_cast<VulkanBuffer*>(handle);
+    return buffer->GetBindlessIndex();
 }
 
 TextureHandle VulkanDevice::CreateTexture(const TextureDesc& desc)

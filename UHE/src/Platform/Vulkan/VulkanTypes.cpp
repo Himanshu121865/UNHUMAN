@@ -208,12 +208,12 @@ vk::DescriptorType ToVkDescriptorType(BufferUsageFlags usage)
             return vk::DescriptorType::eBlockMatchImageQCOM;
 #endif
 #if defined(VK_ENABLE_BETA_EXTENSIONS) || defined(VK_ARM_TENSOR_CORE_EXTENSION_NAME)
-// In some Vulkan SDKs, eTensorARM is only available if beta extensions are enabled, or in later versions.
-// Using a #if defined to avoid compilation error.
-#if VK_HEADER_VERSION >= 269
+    // In some Vulkan SDKs, eTensorARM is only available if beta extensions are enabled, or in later versions.
+    // Using a #if defined to avoid compilation error.
+    #if VK_HEADER_VERSION >= 269
         case BufferUsageFlags::TensorARM:
             return vk::DescriptorType::eTensorARM;
-#endif
+    #endif
 #endif
 #ifdef VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
         case BufferUsageFlags::MutableEXT:

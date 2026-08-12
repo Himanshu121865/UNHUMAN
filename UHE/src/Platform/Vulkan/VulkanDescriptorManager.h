@@ -1,4 +1,5 @@
 #pragma once
+#include <deque>
 #include <vulkan/vulkan_raii.hpp>
 #include "Platform/Vulkan/VulkanDescriptorPool.h"
 #include "Platform/Vulkan/VulkanDescriptorSet.h"
@@ -10,19 +11,23 @@ class DescriptorBuilder
 public:
     DescriptorBuilder() = default;
 
-    DescriptorBuilder& BindBuffer(u32 binding, vk::DescriptorBufferInfo* bufferInfo, vk::DescriptorType type, vk::ShaderStageFlags stageFlags);
-    DescriptorBuilder& BindImage(u32 binding, vk::DescriptorImageInfo* imageInfo, vk::DescriptorType type, vk::ShaderStageFlags stageFlags);
-    
+    DescriptorBuilder& BindBuffer(u32 binding, vk::DescriptorBufferInfo* bufferInfo, vk::DescriptorType type,
+                                  vk::ShaderStageFlags stageFlags);
+    DescriptorBuilder& BindImage(u32 binding, vk::DescriptorImageInfo* imageInfo, vk::DescriptorType type,
+                                 vk::ShaderStageFlags stageFlags);
+
     // For bindless array elements
-    DescriptorBuilder& BindBufferArray(u32 binding, u32 arrayElement, vk::DescriptorBufferInfo* bufferInfo, vk::DescriptorType type);
-    DescriptorBuilder& BindImageArray(u32 binding, u32 arrayElement, vk::DescriptorImageInfo* imageInfo, vk::DescriptorType type);
+    DescriptorBuilder& BindBufferArray(u32 binding, u32 arrayElement, vk::DescriptorBufferInfo* bufferInfo,
+                                       vk::DescriptorType type);
+    DescriptorBuilder& BindImageArray(u32 binding, u32 arrayElement, vk::DescriptorImageInfo* imageInfo,
+                                      vk::DescriptorType type);
 
     void Build(vk::raii::Device& device, vk::DescriptorSet set);
 
 private:
     std::vector<vk::WriteDescriptorSet> m_Writes;
-    std::vector<vk::DescriptorBufferInfo> m_BufferInfos; // Keep alive until build
-    std::vector<vk::DescriptorImageInfo> m_ImageInfos;   // Keep alive until build
+    std::deque<vk::DescriptorBufferInfo> m_BufferInfos; // Keep alive until build, use deque for pointer stability
+    std::deque<vk::DescriptorImageInfo> m_ImageInfos;   // Keep alive until build, use deque for pointer stability
 };
 
 class VulkanDevice;

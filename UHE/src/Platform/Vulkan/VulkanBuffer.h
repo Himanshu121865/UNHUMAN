@@ -2,11 +2,13 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace UHE::RHI::VULKAN {
+namespace UHE::RHI::VULKAN
+{
 
 // ---------------- Vulkan Buffer Abstraction -----------------
 
-class VulkanBuffer {
+class VulkanBuffer
+{
 public:
     VulkanBuffer() = default;
     ~VulkanBuffer();
@@ -21,7 +23,7 @@ public:
 
     vk::Buffer GetHandle() const { return m_Buffer; }
     vk::DeviceSize GetSize() const { return m_Size; }
-    
+
     u32 GetBindlessIndex() const { return m_BindlessIndex; }
     void SetBindlessIndex(u32 index) { m_BindlessIndex = index; }
 
@@ -35,7 +37,8 @@ private:
 
 // ----------- Vulkan Vertex Buffer Abstraction ---------------
 
-class VulkanVertexBuffer {
+class VulkanVertexBuffer
+{
 public:
     VulkanVertexBuffer(const VulkanVertexBuffer&) = delete;
     VulkanVertexBuffer& operator=(const VulkanVertexBuffer&) = delete;
@@ -50,7 +53,8 @@ private:
 };
 
 // ------------ Vulkan Index Buffer Abstraction --------------
-class VulkanIndexBuffer {
+class VulkanIndexBuffer
+{
 public:
     VulkanIndexBuffer(const VulkanIndexBuffer&) = delete;
     VulkanIndexBuffer& operator=(const VulkanIndexBuffer&) = delete;

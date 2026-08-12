@@ -65,14 +65,18 @@ void VulkanDescriptorSet::AllocateSet(vk::Device device, VulkanDescriptorPool* p
 void VulkanDescriptorSet::WriteBuffer(vk::Device device, u32 binding, vk::Buffer buffer, vk::DeviceSize size,
                                       vk::DeviceSize offset)
 {
+    auto it = std::find_if(m_BufferBinding.begin(), m_BufferBinding.end(),
+                           [binding](const vk::DescriptorSetLayoutBinding& b) { return b.binding == binding; });
+    if (it == m_BufferBinding.end())
+        return;
+
     vk::DescriptorBufferInfo bufferInfo{.buffer = buffer, .offset = offset, .range = size};
 
     vk::WriteDescriptorSet descriptorWrite{.dstSet = m_DescriptorSet,
                                            .dstBinding = binding,
                                            .dstArrayElement = 0,
                                            .descriptorCount = 1,
-                                           // We find the descriptor type from the binding layout
-                                           .descriptorType = m_BufferBinding[binding].descriptorType,
+                                           .descriptorType = it->descriptorType,
                                            .pImageInfo = nullptr,
                                            .pBufferInfo = &bufferInfo,
                                            .pTexelBufferView = nullptr};
@@ -83,13 +87,18 @@ void VulkanDescriptorSet::WriteBuffer(vk::Device device, u32 binding, vk::Buffer
 void VulkanDescriptorSet::WriteImage(vk::Device device, u32 binding, vk::ImageView imageView, vk::Sampler sampler,
                                      vk::ImageLayout layout)
 {
+    auto it = std::find_if(m_BufferBinding.begin(), m_BufferBinding.end(),
+                           [binding](const vk::DescriptorSetLayoutBinding& b) { return b.binding == binding; });
+    if (it == m_BufferBinding.end())
+        return;
+
     vk::DescriptorImageInfo imageInfo{.sampler = sampler, .imageView = imageView, .imageLayout = layout};
 
     vk::WriteDescriptorSet descriptorWrite{.dstSet = m_DescriptorSet,
                                            .dstBinding = binding,
                                            .dstArrayElement = 0,
                                            .descriptorCount = 1,
-                                           .descriptorType = m_BufferBinding[binding].descriptorType,
+                                           .descriptorType = it->descriptorType,
                                            .pImageInfo = &imageInfo,
                                            .pBufferInfo = nullptr,
                                            .pTexelBufferView = nullptr};
