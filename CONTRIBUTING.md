@@ -13,9 +13,19 @@ Thank you for your interest in contributing! To keep the codebase clean, perform
 1. **Precompiled Headers**: Always include the precompiled header `uhepch.h` at the very top of your `.cpp` files.
 2. **Minimize Header Bloat**: Do **not** include unnecessary headers in `.h` files. Use **forward declarations** (`class MyClass;`) whenever possible. This keeps compilation times fast and prevents massive dependency chains.
 
-## Workflow
+## Workflow & Stability
 
-- Keep Pull Requests focused on a single feature or bug fix.
-- Make sure your code builds successfully (both Windows and Linux if possible) before submitting a PR.
+1. **Focused Pull Requests**: Keep Pull Requests focused on a single feature or bug fix. Do not mix unrelated changes.
+2. **Never Break the Build**: Always ensure your code compiles locally (both Windows and Linux if possible) before submitting a PR. If CI/CD fails, fix it immediately.
+3. **No Untested Code**: If you add a complex system (like a new physics solver or memory allocator), include a sandbox test layer to prove it works and doesn't leak memory.
 
+## Commit Messages
 
+To keep the git history readable and easy to search, please prefix your commit messages with the subsystem you modified. 
+
+Examples:
+- `Vulkan: implement bindless descriptor manager`
+- `Renderer: add dynamic rendering pass`
+- `AssetSystem: fix memory leak when loading GLTF`
+- `Core: update application layer loop`
+- `Doc: add contribution guidelines`
