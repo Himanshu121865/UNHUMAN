@@ -76,6 +76,7 @@ target_compile_definitions(UHE PUBLIC
     GLFW_INCLUDE_NONE
     _CRT_SECURE_NO_WARNINGS
     GLM_FORCE_DEPTH_ZERO_TO_ONE
+    $<$<CONFIG:Debug>:UHE_DEBUG>
 )
 
 target_compile_definitions(UHE PRIVATE UHE_BUILD_DLL ENTT_API_EXPORT TRACY_ENABLE)

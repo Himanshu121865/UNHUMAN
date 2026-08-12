@@ -359,7 +359,7 @@ void Editor::OnImGuiRender()
     ImGui::Begin("Settings");
 
     std::string name = "None";
-    if (m_HoverdEntity)
+    if (m_HoverdEntity && m_HoverdEntity.HasComponent<TagComponent>())
         name = m_HoverdEntity.GetComponent<TagComponent>().Tag;
 
     ImGui::Text("Hover Entity %s", name.c_str());
@@ -537,8 +537,12 @@ void Editor::OnImGuiRender()
             glm::mat4 cameraView = m_EditorCamera.GetViewMatrix();
             glm::mat4 cameraprojection = m_EditorCamera.GetProjection();
 
-            auto& tc = SelectedEntity.GetComponent<TransformComponent>();
-            glm::mat4 transform = tc.GetTransform();
+            glm::mat4 transform = glm::mat4(1.0f);
+            if (SelectedEntity.HasComponent<TransformComponent>())
+            {
+                auto& tc = SelectedEntity.GetComponent<TransformComponent>();
+                transform = tc.GetTransform();
+            }
 
             bool snap = Input::IsKeyPressed(Key::LeftControl);
             f32 snapValue = 0.5f;
@@ -552,10 +556,11 @@ void Editor::OnImGuiRender()
                                  (ImGuizmo::OPERATION)m_GizmoType, ImGuizmo::LOCAL, glm::value_ptr(transform), nullptr,
                                  snap ? snapValues : nullptr);
 
-            if (ImGuizmo::IsUsing())
+            if (ImGuizmo::IsUsing() && SelectedEntity.HasComponent<TransformComponent>())
             {
                 glm::vec3 translation, rotation, scale;
                 Math::DecomposeTransform(transform, translation, rotation, scale);
+                auto& tc = SelectedEntity.GetComponent<TransformComponent>();
                 glm::vec3 deltaRotation = rotation - tc.Rotation;
                 tc.Translation = translation;
                 tc.Rotation += deltaRotation;

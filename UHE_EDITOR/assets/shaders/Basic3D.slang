@@ -105,7 +105,9 @@ FragmentOutput fragmentMain(VertexOutput input) {
         }
         
         // Clamp roughness to prevent divide by zero
-        roughness = max(roughness, 0.04);
+        roughness = clamp(roughness, 0.04, 0.99);
+        // Clamp metallic for better default look
+        metallic = clamp(metallic, 0.0, 0.99);
         
         float3 F0 = float3(0.04);
         F0 = lerp(F0, texColor.rgb, metallic);
@@ -117,7 +119,7 @@ FragmentOutput fragmentMain(VertexOutput input) {
             LightData light = u_LightBuffers[pc.lightBufferIndex][i];
             
             int type = int(light.type_radius_pad.x);
-            float radius = light.type_radius_pad.y;
+            float radius = max(light.type_radius_pad.y, 0.1); // prevent div by zero
 
             float3 L;
             float attenuation = 1.0;
@@ -130,12 +132,14 @@ FragmentOutput fragmentMain(VertexOutput input) {
                 float distance = length(L);
                 L = normalize(L);
                 
-                attenuation = max(0.0, 1.0 - (distance / radius));
-                attenuation *= attenuation; // quadratic falloff
+                // Better point light attenuation (linear/quadratic mix)
+                attenuation = clamp(1.0 - (distance * distance) / (radius * radius), 0.0, 1.0);
+                attenuation *= attenuation; 
             }
             
             float3 H = normalize(V + L);
-            float3 radiance = light.color_intensity.xyz * light.color_intensity.w * attenuation;
+            // Boost radiance by PI to compensate for BRDF 1/PI division so default intensity=1 looks good
+            float3 radiance = light.color_intensity.xyz * light.color_intensity.w * attenuation * PI;
             
             // Cook-Torrance BRDF
             // NDF (Distribution GGX)
@@ -172,14 +176,17 @@ FragmentOutput fragmentMain(VertexOutput input) {
             float3 kD = float3(1.0) - kS;
             kD *= 1.0 - metallic;
             
+            // Add lighting
             Lo += (kD * texColor.rgb / PI + specular) * radiance * NdotL;
         }
         
-        float3 ambient = float3(0.03) * texColor.rgb; // Base ambient
+        // Boost ambient a bit so dark sides are visible
+        float3 ambient = float3(0.08) * texColor.rgb; 
         litColor = ambient + Lo;
         
-        // Simple HDR tonemapping
-        litColor = litColor / (litColor + float3(1.0));
+        // Simple HDR tonemapping (Exposure-based instead of Reinhard for better contrast)
+        float exposure = 1.0;
+        litColor = float3(1.0) - exp(-litColor * exposure);
         
         finalColor = litColor;
     }

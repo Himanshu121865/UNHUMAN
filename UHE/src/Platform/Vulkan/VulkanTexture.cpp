@@ -62,23 +62,54 @@ VulkanTexture::~VulkanTexture()
 {
     if (m_Device)
     {
-        m_Device->WaitIdle();
-    }
+        auto allocator = m_allocator;
+        auto image = textureImage;
+        auto imageMemory = textureImageMemory;
+        
+        auto imageViewPtr = new vk::raii::ImageView(std::move(textureImageView));
+        auto samplerPtr = new vk::raii::Sampler(std::move(textureSampler));
+        auto ds = m_ImGuiDescriptorSet;
+        auto slot = m_TextureIndex;
+        auto* descriptorManager = m_Device->GetDescriptorManager();
 
-    if (m_ImGuiDescriptorSet != VK_NULL_HANDLE && ImGui::GetCurrentContext() != nullptr)
-    {
-        ImGui_ImplVulkan_RemoveTexture(m_ImGuiDescriptorSet);
-        m_ImGuiDescriptorSet = VK_NULL_HANDLE;
-    }
+        m_Device->DeferDestruction([allocator, image, imageMemory, imageViewPtr, samplerPtr, ds, slot, descriptorManager]() {
+            if (ds != VK_NULL_HANDLE && ImGui::GetCurrentContext() != nullptr)
+            {
+                ImGui_ImplVulkan_RemoveTexture(ds);
+            }
+            if (allocator && image && imageMemory)
+            {
+                vmaDestroyImage(allocator, static_cast<VkImage>(image), imageMemory);
+            }
+            if (descriptorManager && slot != static_cast<u32>(-1) && slot != 0)
+            {
+                descriptorManager->UnbindTexture(slot);
+            }
+            delete imageViewPtr;
+            delete samplerPtr;
+        });
 
-    textureImageView.clear();
-    textureSampler.clear();
-
-    if (m_allocator && textureImage && textureImageMemory)
-    {
-        vmaDestroyImage(m_allocator, static_cast<VkImage>(textureImage), textureImageMemory);
         textureImage = nullptr;
         textureImageMemory = nullptr;
+        m_ImGuiDescriptorSet = VK_NULL_HANDLE;
+    }
+    else
+    {
+        if (m_ImGuiDescriptorSet != VK_NULL_HANDLE && ImGui::GetCurrentContext() != nullptr)
+        {
+            ImGui_ImplVulkan_RemoveTexture(m_ImGuiDescriptorSet);
+            m_ImGuiDescriptorSet = VK_NULL_HANDLE;
+        }
+
+        textureImageView.clear();
+        textureSampler.clear();
+
+        if (m_allocator && textureImage && textureImageMemory)
+        {
+            vmaDestroyImage(m_allocator, static_cast<VkImage>(textureImage), textureImageMemory);
+            textureImage = nullptr;
+            textureImageMemory = nullptr;
+        }
     }
 }
 

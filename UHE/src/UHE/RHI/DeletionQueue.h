@@ -13,10 +13,15 @@ public:
 
     /// Flush all pending deletions in LIFO order (reverse of creation).
     void Flush() {
-        for (auto it = m_deletors.rbegin(); it != m_deletors.rend(); ++it) {
-            (*it)();
+        while (!m_deletors.empty()) {
+            std::vector<std::function<void()>> temp;
+            temp.swap(m_deletors);
+            for (auto it = temp.rbegin(); it != temp.rend(); ++it) {
+                if (*it) {
+                    (*it)();
+                }
+            }
         }
-        m_deletors.clear();
     }
 
     [[nodiscard]] bool Empty() const { return m_deletors.empty(); }

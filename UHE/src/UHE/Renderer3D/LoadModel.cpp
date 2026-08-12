@@ -20,7 +20,6 @@ Model::~Model()
 void Model::Destroy()
 {
     auto& device = Renderer::GetDevice();
-    device.WaitIdle();
     
     m_Animations.clear();
     m_Skeleton.Bones.clear();

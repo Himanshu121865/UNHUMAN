@@ -41,6 +41,7 @@ public:
     void DestroyTexture(TextureHandle handle) override;
     void DestroyShader(ShaderHandle handle) override;
     void DestroyGraphicsPipeline(PipelineHandle handle) override;
+    void DeferDestruction(std::function<void()>&& function);
     u32 RegisterBuffer(VulkanBuffer* buffer);
 
     // ─── Command Buffer Access ──────────────────────────────────

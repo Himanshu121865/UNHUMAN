@@ -10,6 +10,7 @@
     #include <unistd.h>
 #endif
 #include <vulkan/vulkan_raii.hpp>
+#include <volk.h>
 #include "Platform/Vulkan/VulkanBuffer.h"
 #include "Platform/Vulkan/VulkanExtensionCheck.h"
 #include "Platform/Vulkan/VulkanGraphicPipeline.h"
@@ -41,10 +42,18 @@ void VulkanDevice::InitVulkan(const SwapchainDesc& swapDesc)
     UHE_PROFILE_FUNCTION();
 
     m_Instance.initialize();
+
+    // Initialize Vulkan-Hpp default dispatcher
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_Instance.getInstance());
+
     m_LogicalDevice.CreateSurface(m_Instance, m_WindowHandle);
     m_PhysicalDevice.initPhysicalDevice(m_Instance);
 
     m_LogicalDevice.initialize(m_PhysicalDevice, *m_LogicalDevice.getSurface(), m_Instance, m_ExtensionCheck);
+    
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_LogicalDevice.getLogicalDevice());
+
     m_Allocator = m_LogicalDevice.getAllocator();
 
     m_SwapChain.createSwapChain(m_LogicalDevice.getLogicalDevice(), m_PhysicalDevice.getPhysicalDevice(),
@@ -197,7 +206,14 @@ u32 VulkanDevice::GetBufferBindlessIndex(BufferHandle handle)
 
     // the handle points to a VulkanBuffer instance. We return its stored bindless index.
     auto* buffer = reinterpret_cast<VulkanBuffer*>(handle);
-    return buffer->GetBindlessIndex();
+    u32 index = buffer->GetBindlessIndex();
+    
+    if (index == static_cast<u32>(-1))
+    {
+        index = RegisterBuffer(buffer);
+    }
+    
+    return index;
 }
 
 TextureHandle VulkanDevice::CreateTexture(const TextureDesc& desc)
@@ -253,6 +269,11 @@ void VulkanDevice::DestroyGraphicsPipeline(PipelineHandle handle)
         auto* pipeline = reinterpret_cast<VulkanGraphicPipeline*>(handle);
         m_Frames[m_CurrentFrame].GetDeletionQueue().Push([pipeline]() { delete pipeline; });
     }
+}
+
+void VulkanDevice::DeferDestruction(std::function<void()>&& function)
+{
+    m_Frames[m_CurrentFrame].GetDeletionQueue().Push(std::move(function));
 }
 
 void VulkanDevice::Begin()
