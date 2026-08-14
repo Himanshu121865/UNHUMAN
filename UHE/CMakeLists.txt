@@ -102,6 +102,7 @@ PRIVATE
     slang::slang
     box2d
     Jolt
+    msdf-atlas-gen
 )
 
 if(UNIX)

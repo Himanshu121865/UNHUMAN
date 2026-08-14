@@ -252,9 +252,12 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
     }
     if (m_extensionCheck.HasVkfragment_shading_rate)
     {
-        m_fragmentShadingRateFeatures.pipelineFragmentShadingRate = VK_TRUE;
-        m_fragmentShadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
-        m_fragmentShadingRateFeatures.attachmentFragmentShadingRate = VK_TRUE;
+        m_fragmentShadingRateFeatures.pipelineFragmentShadingRate =
+            m_supportedFragmentShadingRateFeatures.pipelineFragmentShadingRate;
+        m_fragmentShadingRateFeatures.primitiveFragmentShadingRate =
+            m_supportedFragmentShadingRateFeatures.primitiveFragmentShadingRate;
+        m_fragmentShadingRateFeatures.attachmentFragmentShadingRate =
+            m_supportedFragmentShadingRateFeatures.attachmentFragmentShadingRate;
         *pNextChainTail = &m_fragmentShadingRateFeatures;
         pNextChainTail = &m_fragmentShadingRateFeatures.pNext;
     }
@@ -306,6 +309,14 @@ vk::PhysicalDeviceFeatures2* VulkanExtensionCheck::BuildDeviceFeatureChain()
     *pNextChainTail = nullptr;
     return &m_features2;
 };
+
+void VulkanExtensionCheck::QuerySupportedFeatures(const vk::raii::PhysicalDevice& PhysicalDevice)
+{
+    m_supportedFragmentShadingRateFeatures.pNext = nullptr;
+    m_features2.pNext = m_extensionCheck.HasVkfragment_shading_rate ? &m_supportedFragmentShadingRateFeatures : nullptr;
+    vkGetPhysicalDeviceFeatures2(*PhysicalDevice, reinterpret_cast<VkPhysicalDeviceFeatures2*>(&m_features2));
+    m_features2.pNext = nullptr;
+}
 
 void VulkanExtensionCheck::TickTheAvailableExtension(const vk::raii::PhysicalDevice& PhysicalDevice)
 {

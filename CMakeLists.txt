@@ -66,6 +66,13 @@ add_subdirectory(UHE/vendor/yaml-cpp)
 add_subdirectory(UHE/vendor/box2d)
 add_subdirectory(UHE/vendor/fastgltf)
 
+# MSDF text rendering (msdf-atlas-gen + msdfgen)
+set(MSDF_ATLAS_USE_VCPKG OFF        CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_USE_SKIA  OFF        CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_BUILD_STANDALONE OFF CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_NO_ARTERY_FONT ON    CACHE BOOL "" FORCE)
+add_subdirectory(UHE/vendor/msdf-atlas-gen)
+
 # Disable Jolt Physics tests and viewers to drastically reduce compile times
 set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
