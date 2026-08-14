@@ -13,6 +13,9 @@
 #include "msdfgen.h"
 #include "msdfgen-ext.h"
 
+#include <algorithm>
+#include <thread>
+
 namespace UHE {
 
 struct Font2D::Impl
@@ -27,10 +30,8 @@ struct Font2D::Impl
 };
 
 template <typename T, typename S, int N, msdf_atlas::GeneratorFunction<S, N> GenFunc>
-static RHI::TextureHandle CreateAndCacheAtlas(const std::string& fontName, double fontSize,
-                                              const std::vector<msdf_atlas::GlyphGeometry>& glyphs,
-                                              const msdf_atlas::FontGeometry& fontGeometry, uint32_t width,
-                                              uint32_t height)
+static RHI::TextureHandle CreateAtlasTexture(const std::vector<msdf_atlas::GlyphGeometry>& glyphs, uint32_t width,
+                                             uint32_t height)
 {
     msdf_atlas::GeneratorAttributes attributes;
     attributes.config.overlapSupport = true;
@@ -38,7 +39,8 @@ static RHI::TextureHandle CreateAndCacheAtlas(const std::string& fontName, doubl
 
     msdf_atlas::ImmediateAtlasGenerator<S, N, GenFunc, msdf_atlas::BitmapAtlasStorage<T, N>> generator(width, height);
     generator.setAttributes(attributes);
-    generator.setThreadCount(8);
+    unsigned hwThreads = std::thread::hardware_concurrency();
+    generator.setThreadCount((int)std::max(1u, std::min(8u, hwThreads ? hwThreads : 1u)));
     generator.generate(glyphs.data(), (int)glyphs.size());
 
     msdfgen::BitmapConstSection<T, N> bitmap = (msdfgen::BitmapConstSection<T, N>)generator.atlasStorage();
@@ -58,12 +60,17 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
     : m_Path(ttfPath), m_GenSizePx(genSizePx), m_PixelRange(pixelRange), m_Impl(std::make_unique<Impl>())
 {
     msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
-    UHE_CORE_ASSERT(ft);
+    if (!ft)
+    {
+        UHE_CORE_ERROR("Failed to initialize FreeType for font: {}", m_Path);
+        return;
+    }
 
     msdfgen::FontHandle* font = msdfgen::loadFont(ft, m_Path.c_str());
     if (!font)
     {
         UHE_CORE_ERROR("Failed to load font: {}", m_Path);
+        msdfgen::deinitializeFreetype(ft);
         return;
     }
 
@@ -84,6 +91,13 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
     double fontScale = 1.0;
     int glyphsLoaded = m_Impl->FontGeometry.loadCharset(font, fontScale, charset);
     UHE_CORE_INFO("Loaded {} glyphs from font (out of {})", glyphsLoaded, charset.size());
+    if (glyphsLoaded <= 0)
+    {
+        UHE_CORE_ERROR("No glyphs loaded from font: {}", m_Path);
+        msdfgen::destroyFont(font);
+        msdfgen::deinitializeFreetype(ft);
+        return;
+    }
 
     double emSize = (double)m_GenSizePx;
 
@@ -92,11 +106,16 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
     atlasPacker.setMiterLimit(1.0);
     atlasPacker.setScale(emSize);
     int remaining = atlasPacker.pack(m_Impl->Glyphs.data(), (int)m_Impl->Glyphs.size());
-    UHE_CORE_ASSERT(remaining == 0);
+    if (remaining != 0)
+    {
+        UHE_CORE_ERROR("Atlas packing failed for font {}: {} glyphs did not fit", m_Path, remaining);
+        msdfgen::destroyFont(font);
+        msdfgen::deinitializeFreetype(ft);
+        return;
+    }
 
     int width, height;
     atlasPacker.getDimensions(width, height);
-    emSize = atlasPacker.getScale();
     m_AtlasWidth = (u32)width;
     m_AtlasHeight = (u32)height;
 
@@ -106,13 +125,18 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
     unsigned long long glyphSeed = 0;
     for (msdf_atlas::GlyphGeometry& glyph : m_Impl->Glyphs)
     {
-        glyphSeed *= LCG_MULTIPLIER;
+        glyphSeed = glyphSeed * LCG_MULTIPLIER + LCG_INCREMENT;
         glyph.edgeColoring(msdfgen::edgeColoringInkTrap, DEFAULT_ANGLE_THRESHOLD, glyphSeed);
     }
 
-    m_Atlas = CreateAndCacheAtlas<uint8_t, float, 4, msdf_atlas::mtsdfGenerator>(
-        m_Path, emSize, m_Impl->Glyphs, m_Impl->FontGeometry, width, height);
-    UHE_CORE_ASSERT(m_Atlas, "Failed to create MSDF atlas!");
+    m_Atlas = CreateAtlasTexture<uint8_t, float, 4, msdf_atlas::mtsdfGenerator>(m_Impl->Glyphs, width, height);
+    if (!m_Atlas)
+    {
+        UHE_CORE_ERROR("Failed to create MSDF atlas for font: {}", m_Path);
+        msdfgen::destroyFont(font);
+        msdfgen::deinitializeFreetype(ft);
+        return;
+    }
 
     const msdfgen::FontMetrics& metrics = m_Impl->FontGeometry.getMetrics();
     m_Ascent = (f32)metrics.ascenderY;
@@ -132,12 +156,14 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
         FontGlyph fontGlyph;
         fontGlyph.PlaneBoundsMin = {(f32)planeL, (f32)planeB};
         fontGlyph.PlaneBoundsMax = {(f32)planeR, (f32)planeT};
-        fontGlyph.UVMin = {(f32)atlasL / (f32)m_AtlasWidth, (f32)atlasB / (f32)m_AtlasHeight};
-        fontGlyph.UVMax = {(f32)atlasR / (f32)m_AtlasWidth, (f32)atlasT / (f32)m_AtlasHeight};
+        fontGlyph.UVMin = {(f32)atlasL / (f32)m_AtlasWidth, 1.0f - (f32)atlasT / (f32)m_AtlasHeight};
+        fontGlyph.UVMax = {(f32)atlasR / (f32)m_AtlasWidth, 1.0f - (f32)atlasB / (f32)m_AtlasHeight};
         fontGlyph.Advance = (f32)glyph.getAdvance();
 
         m_Glyphs.emplace((u32)codepoint, fontGlyph);
     }
+
+    m_Valid = true;
 
     UHE_CORE_INFO("Font loaded: {}, {} glyphs, atlas {}x{}", m_Path, (u32)m_Glyphs.size(), m_AtlasWidth,
                   m_AtlasHeight);
@@ -146,7 +172,11 @@ Font2D::Font2D(const std::string& ttfPath, u32 genSizePx, f32 pixelRange)
     msdfgen::deinitializeFreetype(ft);
 }
 
-Font2D::~Font2D() = default;
+Font2D::~Font2D()
+{
+    if (m_Atlas)
+        Renderer::GetDevice().DestroyTexture(m_Atlas);
+}
 
 Ref<Font2D> Font2D::Get(const std::string& ttfPath, u32 genSizePx)
 {
@@ -156,16 +186,29 @@ Ref<Font2D> Font2D::Get(const std::string& ttfPath, u32 genSizePx)
         return it->second;
 
     Ref<Font2D> font = CreateRef<Font2D>(ttfPath, genSizePx);
+    if (!font->IsValid())
+    {
+        UHE_CORE_ERROR("Failed to create font: {} (not cached)", ttfPath);
+        return nullptr;
+    }
+
     s_Cache[key] = font;
     return font;
 }
 
 Ref<Font2D> Font2D::GetDefault()
 {
-    static Ref<Font2D> s_DefaultFont;
     if (!s_DefaultFont)
+    {
         s_DefaultFont = Get((FileSystem::Get().GetRootPath() / "assets/fonts/Inter_18pt-Bold.ttf").string());
+    }
     return s_DefaultFont;
+}
+
+void Font2D::Shutdown()
+{
+    s_DefaultFont.reset();
+    s_Cache.clear();
 }
 
 const FontGlyph* Font2D::GetGlyph(u32 codepoint) const
@@ -177,5 +220,6 @@ const FontGlyph* Font2D::GetGlyph(u32 codepoint) const
 }
 
 std::unordered_map<std::string, Ref<Font2D>> Font2D::s_Cache;
+Ref<Font2D> Font2D::s_DefaultFont;
 
 } // namespace UHE

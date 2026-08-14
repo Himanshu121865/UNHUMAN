@@ -80,9 +80,11 @@ FragmentOutput fragmentMain(VertexOutput input) {
         case 29: texColor = u_Textures[pc.textureIndices[29]].Sample(input.v_TexCoord); break;
         case 30: texColor = u_Textures[pc.textureIndices[30]].Sample(input.v_TexCoord); break;
         case 31: texColor = u_Textures[pc.textureIndices[31]].Sample(input.v_TexCoord); break;
+        default: discard;
     }
     float sigDist = median(texColor.r, texColor.g, texColor.b) - 0.5;
-    float alpha = clamp(sigDist / fwidth(sigDist) + 0.5, 0.0, 1.0);
+    float distWidth = fwidth(sigDist);
+    float alpha = distWidth > 0.0 ? clamp(sigDist / distWidth + 0.5, 0.0, 1.0) : (sigDist > 0.0 ? 1.0 : 0.0);
     float4 finalColor = float4(input.v_Color.rgb, input.v_Color.a * alpha);
     output.color = finalColor;
     output.entityID = (int)round(input.v_EntityID);

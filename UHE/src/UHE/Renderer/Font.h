@@ -22,8 +22,16 @@ public:
     Font2D(const std::string& ttfPath, u32 genSizePx = 64, f32 pixelRange = 2.0f);
     ~Font2D();
 
+    Font2D(const Font2D&) = delete;
+    Font2D& operator=(const Font2D&) = delete;
+    Font2D(Font2D&&) = delete;
+    Font2D& operator=(Font2D&&) = delete;
+
     static Ref<Font2D> Get(const std::string& ttfPath, u32 genSizePx = 64);
     static Ref<Font2D> GetDefault();
+    static void Shutdown();
+
+    bool IsValid() const { return m_Valid; }
 
     const FontGlyph* GetGlyph(u32 codepoint) const;
     f32 GetAscent() const { return m_Ascent; }
@@ -42,12 +50,14 @@ private:
     f32 m_LineHeight = 0.0f;
     u32 m_AtlasWidth = 0;
     u32 m_AtlasHeight = 0;
+    bool m_Valid = false;
     RHI::TextureHandle m_Atlas = nullptr;
     std::unordered_map<u32, FontGlyph> m_Glyphs;
 
     struct Impl;
     std::unique_ptr<Impl> m_Impl;
     static std::unordered_map<std::string, Ref<Font2D>> s_Cache;
+    static Ref<Font2D> s_DefaultFont;
 };
 
 } // namespace UHE

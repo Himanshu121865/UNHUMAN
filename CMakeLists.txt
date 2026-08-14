@@ -58,7 +58,21 @@ endfunction()
 # all libs
 add_subdirectory(UHE/vendor/GLFW)
 
-add_subdirectory(UHE/vendor/imgui)
+# ImGui is built here instead of add_subdirectory(UHE/vendor/imgui): the vendored
+# fork's CMakeLists.txt defines IMGUI_API=__declspec(dllexport) unconditionally,
+# which breaks GCC/Linux builds
+add_library(ImGui STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/UHE/vendor/imgui/imgui.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UHE/vendor/imgui/imgui_draw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UHE/vendor/imgui/imgui_tables.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UHE/vendor/imgui/imgui_widgets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UHE/vendor/imgui/imgui_demo.cpp
+)
+if(MSVC)
+    target_compile_definitions(ImGui PRIVATE IMGUI_API=__declspec\(dllexport\))
+endif()
+target_include_directories(ImGui PUBLIC UHE/vendor/imgui)
+
 add_subdirectory(UHE/vendor/imGuizmo)
 add_subdirectory(UHE/vendor/volk)
 add_subdirectory(UHE/vendor/VulkanMemoryAllocator)
